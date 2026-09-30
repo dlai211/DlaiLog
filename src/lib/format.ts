@@ -89,3 +89,9 @@ export function formatPercentChange(percent: number): string {
   if (rounded > 0) return `+${rounded}%`;
   return `${rounded}%`;
 }
+
+/** Shortens long text for tight spaces: `"Buy the new…"` */
+export function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}…`;
+}

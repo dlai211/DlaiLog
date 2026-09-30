@@ -2,7 +2,7 @@
 // Each module's selectors live in their own section.
 
 import { daysBetween, todayKey } from '@/lib/dates';
-import type { Project, ProjectStatus } from '@/store/types';
+import type { Project, ProjectStatus, Task } from '@/store/types';
 
 // ---------------------------------------------------------------------------
 // Projects
@@ -51,4 +51,49 @@ export function projectDueLabel(
   if (days === 0) return { label: 'Due today', overdue: false };
   if (days === 1) return { label: 'Due tomorrow', overdue: false };
   return { label: `${days} days left`, overdue: false };
+}
+
+// ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+
+/** Timed tasks first (earliest first), then untimed ones by creation order. */
+function compareTasks(a: Task, b: Task): number {
+  if (a.time && b.time) return a.time.localeCompare(b.time) || a.createdAt.localeCompare(b.createdAt);
+  if (a.time) return -1;
+  if (b.time) return 1;
+  return a.createdAt.localeCompare(b.createdAt);
+}
+
+/** The open tasks of one day, split into the Day view's two sections. */
+export function tasksForDay(tasks: Task[], date: string): { timed: Task[]; anytime: Task[] } {
+  const open = tasks.filter((task) => task.date === date && !task.done).sort(compareTasks);
+  return {
+    timed: open.filter((task) => Boolean(task.time)),
+    anytime: open.filter((task) => !task.time),
+  };
+}
+
+export function doneTasksForDay(tasks: Task[], date: string): Task[] {
+  return tasks.filter((task) => task.date === date && task.done).sort(compareTasks);
+}
+
+/** Unfinished tasks from earlier days, oldest first. */
+export function overdueTasks(tasks: Task[], today: string): Task[] {
+  return tasks
+    .filter((task) => !task.done && task.date < today)
+    .sort((a, b) => a.date.localeCompare(b.date) || compareTasks(a, b));
+}
+
+/** Open tasks of a month, grouped by day key — the Month view's chips. */
+export function undoneTasksByDay(tasks: Task[], monthKey: string): Record<string, Task[]> {
+  const byDay: Record<string, Task[]> = {};
+  for (const task of tasks) {
+    if (task.done || !task.date.startsWith(monthKey)) continue;
+    (byDay[task.date] ??= []).push(task);
+  }
+  for (const day of Object.keys(byDay)) {
+    byDay[day].sort(compareTasks);
+  }
+  return byDay;
 }

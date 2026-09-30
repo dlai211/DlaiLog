@@ -1,11 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import ProjectsScreen from '@/app/projects';
-import { ToastProvider } from '@/components/ui/toast';
 import { addDays, todayKey } from '@/lib/dates';
-import { DataProvider } from '@/store/data-provider';
 import { STORAGE_KEY } from '@/store/storage';
+import { renderScreen } from '@/test/helpers';
 import { emptyDB, type Project } from '@/store/types';
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -25,16 +24,6 @@ async function seed(projects: Project[]) {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...emptyDB(), projects }));
 }
 
-function renderScreen() {
-  return render(
-    <ToastProvider>
-      <DataProvider>
-        <ProjectsScreen />
-      </DataProvider>
-    </ToastProvider>
-  );
-}
-
 async function waitForProject(name: string) {
   await waitFor(() => expect(screen.getByText(name)).toBeOnTheScreen());
 }
@@ -45,7 +34,7 @@ beforeEach(async () => {
 
 describe('Projects screen', () => {
   it('shows a friendly empty state when there are no projects', async () => {
-    renderScreen();
+    await renderScreen(<ProjectsScreen />);
     await waitFor(() =>
       expect(screen.getByText('No projects yet — add your first one.')).toBeOnTheScreen()
     );
@@ -63,7 +52,7 @@ describe('Projects screen', () => {
       }),
     ]);
 
-    renderScreen();
+    await renderScreen(<ProjectsScreen />);
 
     await waitForProject('DlaiLog website');
     expect(screen.getByText('Mobile app')).toBeOnTheScreen();
@@ -75,7 +64,7 @@ describe('Projects screen', () => {
   });
 
   it('creates a project through the add form and saves it', async () => {
-    renderScreen();
+    await renderScreen(<ProjectsScreen />);
     await waitFor(() => expect(screen.getByTestId('new-project')).toBeOnTheScreen());
 
     fireEvent.press(screen.getByTestId('new-project'));
@@ -98,7 +87,7 @@ describe('Projects screen', () => {
   });
 
   it('refuses to save without a name', async () => {
-    renderScreen();
+    await renderScreen(<ProjectsScreen />);
     await waitFor(() => expect(screen.getByTestId('new-project')).toBeOnTheScreen());
 
     fireEvent.press(screen.getByTestId('new-project'));
@@ -110,7 +99,7 @@ describe('Projects screen', () => {
 
   it('opens the edit form pre-filled and saves progress changes', async () => {
     await seed([makeProject({ id: 'p1', name: 'DlaiLog website', progress: 40 })]);
-    renderScreen();
+    await renderScreen(<ProjectsScreen />);
     await waitForProject('DlaiLog website');
 
     fireEvent.press(screen.getByTestId('project-card-p1'));
@@ -128,7 +117,7 @@ describe('Projects screen', () => {
       makeProject({ id: 'p1', name: 'DlaiLog website', status: 'in-progress' }),
       makeProject({ id: 'p2', name: 'Mobile app', status: 'done' }),
     ]);
-    renderScreen();
+    await renderScreen(<ProjectsScreen />);
     await waitForProject('DlaiLog website');
 
     fireEvent.press(screen.getByTestId('project-filter-done'));
@@ -146,7 +135,7 @@ describe('Projects screen', () => {
 
   it('asks for confirmation before deleting and then removes the project', async () => {
     await seed([makeProject({ id: 'p1', name: 'DlaiLog website' })]);
-    renderScreen();
+    await renderScreen(<ProjectsScreen />);
     await waitForProject('DlaiLog website');
 
     fireEvent.press(screen.getByTestId('project-delete-p1'));

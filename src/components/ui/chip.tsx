@@ -28,7 +28,16 @@ export function Chip({
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityState={onPress ? { selected } : undefined}
       disabled={!onPress}
-      onPress={onPress}
+      onPress={
+        onPress
+          ? (event) => {
+              // Chips often sit inside tappable rows (e.g. a calendar day
+              // cell): keep the tap from bubbling up to the row on web.
+              if (typeof event?.stopPropagation === 'function') event.stopPropagation();
+              onPress();
+            }
+          : undefined
+      }
       style={({ pressed }) => [
         styles.chip,
         { borderColor: selected ? tint : theme.border },
