@@ -1,8 +1,8 @@
 // Derived data — computed on the fly from the database, never stored.
 // Each module's selectors live in their own section.
 
-import { daysBetween, todayKey } from '@/lib/dates';
-import type { Category, Project, ProjectStatus, Purchase, Task, Unit } from '@/store/types';
+import { daysBetween, monthKeyOf, shiftMonthKey, todayKey } from '@/lib/dates';
+import type { Category, DB, Project, ProjectStatus, Purchase, Task, Unit } from '@/store/types';
 
 // ---------------------------------------------------------------------------
 // Projects
@@ -405,4 +405,50 @@ export function biggestPriceMoves(items: GroceryItem[], limit = 3): GroceryItem[
     .filter((item) => item.changePercent !== null && Math.abs(item.changePercent) > 0.5)
     .sort((a, b) => Math.abs(b.changePercent ?? 0) - Math.abs(a.changePercent ?? 0))
     .slice(0, limit);
+}
+
+// ---------------------------------------------------------------------------
+// Home — one live summary of every module (PRD §3)
+// ---------------------------------------------------------------------------
+
+export interface HomeSummary {
+  monthKey: string;
+  monthTotal: number;
+  previousMonthTotal: number;
+  /** Change vs last month; null when last month had no spending. */
+  monthChangePercent: number | null;
+  purchaseCount: number;
+  topCategory?: Category;
+  /** Up to three active projects, soonest target date first. */
+  topProjects: Project[];
+  /** The items bought this month whose unit price moved most since before. */
+  priceMovers: GroceryItem[];
+}
+
+export function homeSummary(db: DB, today: string = todayKey()): HomeSummary {
+  const month = monthKeyOf(today);
+  const previousMonth = shiftMonthKey(month, -1);
+
+  const summary = monthSummary(db.purchases, month);
+  const previousMonthTotal = monthTotal(db.purchases, previousMonth);
+
+  const moversThisMonth = groceryItems(db.purchases).filter((item) =>
+    item.lastDate.startsWith(month)
+  );
+
+  return {
+    monthKey: month,
+    monthTotal: summary.total,
+    previousMonthTotal,
+    monthChangePercent:
+      previousMonthTotal > 0
+        ? ((summary.total - previousMonthTotal) / previousMonthTotal) * 100
+        : null,
+    purchaseCount: summary.count,
+    topCategory: summary.topCategory,
+    topProjects: sortProjects(db.projects)
+      .filter((project) => project.status !== 'done')
+      .slice(0, 3),
+    priceMovers: biggestPriceMoves(moversThisMonth, 3),
+  };
 }

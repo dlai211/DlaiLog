@@ -18,7 +18,7 @@ export function FormField({
   testID,
   onSubmitEditing,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
@@ -34,10 +34,12 @@ export function FormField({
 
   return (
     <View style={styles.field}>
-      <ThemedText type="label">
-        {label}
-        {required ? ' *' : ''}
-      </ThemedText>
+      {label ? (
+        <ThemedText type="label">
+          {label}
+          {required ? ' *' : ''}
+        </ThemedText>
+      ) : null}
       <TextInput
         testID={testID}
         value={value}

@@ -6,6 +6,7 @@ import {
   filterPurchases,
   groceryItems,
   groupPurchasesByDay,
+  homeSummary,
   itemMemory,
   itemSuggestions,
   monthSummary,
@@ -20,7 +21,7 @@ import {
   tasksForDay,
   undoneTasksByDay,
 } from '@/store/selectors';
-import type { Project, Purchase, Task } from '@/store/types';
+import { emptyDB, type Project, type Purchase, type Task } from '@/store/types';
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   const stamp = '2026-09-30T08:00:00.000Z';
@@ -469,5 +470,84 @@ describe('categoryCounts / biggestPriceMoves', () => {
     ]);
 
     expect(biggestPriceMoves(items).map((item) => item.name)).toEqual(['Olive oil', 'Rice']);
+  });
+});
+
+describe('homeSummary', () => {
+  const today = '2026-09-30';
+  const month = '2026-09';
+  const previousMonth = '2026-08';
+
+  it('totals this month, compares with last month, and reports the top category', () => {
+    const db = {
+      ...emptyDB(),
+      purchases: [
+        makePurchase({ id: 'a', date: `${month}-10`, totalPrice: 30, category: 'grocery' }),
+        makePurchase({ id: 'b', date: `${month}-20`, totalPrice: 10, category: 'condiment' }),
+        makePurchase({ id: 'c', date: `${previousMonth}-10`, totalPrice: 20, category: 'grocery' }),
+      ],
+    };
+
+    const summary = homeSummary(db, today);
+
+    expect(summary.monthKey).toBe(month);
+    expect(summary.monthTotal).toBe(40);
+    expect(summary.previousMonthTotal).toBe(20);
+    expect(summary.monthChangePercent).toBeCloseTo(100);
+    expect(summary.purchaseCount).toBe(2);
+    expect(summary.topCategory).toBe('grocery');
+  });
+
+  it('has no comparison when last month had no spending', () => {
+    const db = { ...emptyDB(), purchases: [makePurchase({ id: 'a', date: `${month}-10` })] };
+    expect(homeSummary(db, today).monthChangePercent).toBeNull();
+  });
+
+  it('lists up to three active projects, soonest target first', () => {
+    const db = {
+      ...emptyDB(),
+      projects: [
+        makeProject({ id: 'done', status: 'done', targetDate: '2026-10-01' }),
+        makeProject({ id: 'far', targetDate: '2026-12-01' }),
+        makeProject({ id: 'soon', targetDate: '2026-10-05' }),
+        makeProject({ id: 'undated' }),
+        makeProject({ id: 'later', targetDate: '2027-01-01' }),
+      ],
+    };
+
+    expect(homeSummary(db, today).topProjects.map((project) => project.id)).toEqual([
+      'soon',
+      'far',
+      'later',
+    ]);
+  });
+
+  it('reports price moves only for items bought this month', () => {
+    const db = {
+      ...emptyDB(),
+      purchases: [
+        // This month's item with a big move.
+        makePurchase({ id: 'm1', itemName: 'Olive oil', date: `${month}-01`, totalPrice: 5 }),
+        makePurchase({ id: 'm2', itemName: 'Olive oil', date: `${month}-15`, totalPrice: 6, createdAt: `${month}-15T10:00:00.000Z` }),
+        // Last month's item with an even bigger move — must not show up.
+        makePurchase({ id: 'o1', itemName: 'Rice', date: `${previousMonth}-01`, totalPrice: 10 }),
+        makePurchase({ id: 'o2', itemName: 'Rice', date: `${previousMonth}-20`, totalPrice: 20, createdAt: `${previousMonth}-20T10:00:00.000Z` }),
+      ],
+    };
+
+    expect(homeSummary(db, today).priceMovers.map((item) => item.name)).toEqual(['Olive oil']);
+  });
+
+  it('is empty and safe on a brand-new database', () => {
+    const summary = homeSummary(emptyDB(), today);
+    expect(summary).toMatchObject({
+      monthTotal: 0,
+      previousMonthTotal: 0,
+      monthChangePercent: null,
+      purchaseCount: 0,
+      topProjects: [],
+      priceMovers: [],
+    });
+    expect(summary.topCategory).toBeUndefined();
   });
 });
