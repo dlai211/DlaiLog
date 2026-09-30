@@ -68,7 +68,13 @@ function ActionButton({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={onPress}
+      onPress={(event) => {
+        // The action buttons sit inside tappable rows/cards: don't let the
+        // click bubble up and open the row's own action on web. (Test
+        // environments pass a minimal event object, hence the guard.)
+        if (typeof event?.stopPropagation === 'function') event.stopPropagation();
+        onPress();
+      }}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
       <ThemedText type="caption" style={{ color: highlighted ? theme.text : theme.textTertiary }}>
         {glyph}
