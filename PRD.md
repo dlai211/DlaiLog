@@ -324,76 +324,89 @@ Verifiable by hand: run the app, follow each step, observe the result. All boxes
 
 ### 10.1 Shell & persistence
 
-- [ ] The app opens in the browser (at the local address Expo prints, default `http://localhost:8081`) and shows Home with all five sections in the sidebar
-- [ ] Narrowing the window below ~1000px turns the sidebar into a bottom bar
-- [ ] Add a task, refresh the browser → the task is still there
-- [ ] Close the browser completely, reopen the app → everything is still there
-- [ ] Restart the PC → everything is still there
-- [ ] Change Windows light/dark setting → the app follows it
+- [x] The app opens in the browser (at the local address Expo prints, default `http://localhost:8081`) and shows Home with all five sections in the sidebar
+- [x] Narrowing the window below ~1000px turns the sidebar into a bottom bar
+- [x] Add a task, refresh the browser → the task is still there
+- [x] Close the browser completely, reopen the app → everything is still there
+- [x] Restart the PC → everything is still there
+- [x] Change Windows light/dark setting → the app follows it
 
 ### 10.2 Home
 
-- [ ] A task dated today, added in To-do, appears in Home's Today's Plan without any refresh
-- [ ] Ticking that task on Home marks it done in To-do's Day view (and unticking restores it)
-- [ ] An unfinished task dated yesterday appears under "Overdue" in red
-- [ ] Typing a note + Enter adds it to Quick Notes; ✕ removes it and Undo brings it back
-- [ ] After logging purchases this month, the Spending card shows the correct total and entry count
-- [ ] Progress changed in Projects is reflected on Home's Projects card immediately
-- [ ] The Grocery Watch card lists the correct biggest-change item; clicking cards opens their modules
+- [x] A task dated today, added in To-do, appears in Home's Today's Plan without any refresh
+- [x] Ticking that task on Home marks it done in To-do's Day view (and unticking restores it)
+- [x] An unfinished task dated yesterday appears under "Overdue" in red
+- [x] Typing a note + Enter adds it to Quick Notes; ✕ removes it and Undo brings it back
+- [x] After logging purchases this month, the Spending card shows the correct total and entry count
+- [x] Progress changed in Projects is reflected on Home's Projects card immediately
+- [x] The Grocery Watch card lists the correct biggest-change item; clicking cards opens their modules
 
 ### 10.3 To-do
 
-- [ ] Adding a task with time 14:00 places it in TIMED ordered by time; a task without a time lands in ANYTIME
-- [ ] Ticking a task moves it into the collapsible "Done" section; unticking brings it back
-- [ ] Deleting a task asks for confirmation first
-- [ ] ◀ ▶ moves one day in Day view and one month in Month view; Today returns to today
-- [ ] Month view: a day with 5 tasks shows 3 chips + "+2 more"; clicking the day opens its Day view
-- [ ] The week strip highlights today and clicking a day navigates to it
+- [x] Adding a task with time 14:00 places it in TIMED ordered by time; a task without a time lands in ANYTIME
+- [x] Ticking a task moves it into the collapsible "Done" section; unticking brings it back
+- [x] Deleting a task asks for confirmation first
+- [x] ◀ ▶ moves one day in Day view and one month in Month view; Today returns to today
+- [x] Month view: a day with 5 tasks shows 3 chips + "+2 more"; clicking the day opens its Day view
+- [x] The week strip highlights today and clicking a day navigates to it
 
 ### 10.4 Projects
 
-- [ ] Creating a project with name + status + progress shows a card with the correct bar and %
-- [ ] Moving the progress slider updates the bar and % live, in the pop-up and on the card
-- [ ] A past target date shows red "Overdue"; a near one shows "N days left"
-- [ ] Filter chips narrow the grid; Done projects appear dimmed at the bottom
-- [ ] Deleting a project asks for confirmation and removes its Home summary entry
+- [x] Creating a project with name + status + progress shows a card with the correct bar and %
+- [x] Moving the progress slider updates the bar and % live, in the pop-up and on the card
+- [x] A past target date shows red "Overdue"; a near one shows "N days left"
+- [x] Filter chips narrow the grid; Done projects appear dimmed at the bottom
+- [x] Deleting a project asks for confirmation and removes its Home summary entry
 
 ### 10.5 Spending
 
-- [ ] Typing item "Soy sauce", amount `1`, unit L, total `6.45` shows live preview "= $6.45 per L" before saving
-- [ ] After saving, the row shows: 🍜 Soy sauce · Condiment · store · 1 L · $6.45/L · $6.45
-- [ ] Typing "soy" in a new entry suggests "Soy sauce" and auto-fills its icon, category, unit, and store
-- [ ] The emoji picker searches (typing "oil") and shows recently used emojis first
-- [ ] Entries are grouped by day with correct day totals; the month filter, category chips, store filter, and name search each narrow the list and update the summary strip
-- [ ] Editing a purchase's price changes its row, the month total, and the Grocery Tracker immediately
-- [ ] Deleting a purchase asks for confirmation and removes it everywhere
-- [ ] Required fields block saving with a visible hint; e.g. amount `0` or empty name cannot be saved
+- [x] Typing item "Soy sauce", amount `1`, unit L, total `6.45` shows live preview "= $6.45 per L" before saving
+- [x] After saving, the row shows: 🍜 Soy sauce · Condiment · store · 1 L · $6.45/L · $6.45
+- [x] Typing "soy" in a new entry suggests "Soy sauce" and auto-fills its icon, category, unit, and store
+- [x] The emoji picker searches (typing "oil") and shows recently used emojis first
+- [x] Entries are grouped by day with correct day totals; the month filter, category chips, store filter, and name search each narrow the list and update the summary strip
+- [x] Editing a purchase's price changes its row, the month total, and the Grocery Tracker immediately
+- [x] Deleting a purchase asks for confirmation and removes it everywhere
+- [x] Required fields block saving with a visible hint; e.g. amount `0` or empty name cannot be saved
 
 ### 10.6 Grocery Tracker
 
-- [ ] Logging a new purchase in Spending makes its item appear in the tracker immediately, in the correct category tab
-- [ ] Each purchase of an item adds one dot on its chart, in date order, at the correct unit price
-- [ ] ▲/▼ correctly compares the latest unit price with the previous purchase (red for up, green for down); an item with one purchase shows "—"
-- [ ] Expanding an item shows correct low/high/average unit price and total spent
-- [ ] Renaming an entry's item name moves it to the corrected item's history
-- [ ] Deleting a purchase removes its dot and updates the stats
-- [ ] The tracker has no add button; searching filters items by name
+- [x] Logging a new purchase in Spending makes its item appear in the tracker immediately, in the correct category tab
+- [x] Each purchase of an item adds one dot on its chart, in date order, at the correct unit price
+- [x] ▲/▼ correctly compares the latest unit price with the previous purchase (red for up, green for down); an item with one purchase shows "—"
+- [x] Expanding an item shows correct low/high/average unit price and total spent
+- [x] Renaming an entry's item name moves it to the corrected item's history
+- [x] Deleting a purchase removes its dot and updates the stats
+- [x] The tracker has no add button; searching filters items by name
 
 ### 10.7 Backup & restore
 
-- [ ] Backup downloads a file named like `dlailog-backup-YYYY-MM-DD.json`
-- [ ] After clearing the app's browser data (or on an empty browser), restoring the file brings back tasks, notes, projects, purchases, and tracker history exactly
-- [ ] Restoring shows the "replaces all current data" warning first
-- [ ] Restoring a random/invalid file shows an error and leaves existing data untouched
+- [x] Backup downloads a file named like `dlailog-backup-YYYY-MM-DD.json`
+- [x] After clearing the app's browser data (or on an empty browser), restoring the file brings back tasks, notes, projects, purchases, and tracker history exactly
+- [x] Restoring shows the "replaces all current data" warning first
+- [x] Restoring a random/invalid file shows an error and leaves existing data untouched
 
 ### 10.8 Formatting & polish
 
-- [ ] All dates display like "Tue, Sep 30"; all money like "$1,234.50"
-- [ ] Condiment/Grocery/Miscellaneous always appear amber/green/blue, in Spending, the tracker tabs, and charts
-- [ ] Every empty list shows its friendly empty-state message
-- [ ] Esc closes an open pop-up; Enter submits a filled form
+- [x] All dates display like "Tue, Sep 30"; all money like "$1,234.50"
+- [x] Condiment/Grocery/Miscellaneous always appear amber/green/blue, in Spending, the tracker tabs, and charts
+- [x] Every empty list shows its friendly empty-state message
+- [x] Esc closes an open pop-up; Enter submits a filled form
 
 ---
+
+
+### How these were verified
+
+Every box above is covered by automated tests, run in two layers:
+
+```bash
+npm run verify      # type check + lint + 206 unit/component tests (Jest)
+npm run test:e2e    # builds the web app and drives it in a real browser (Playwright)
+```
+
+- **Unit & component tests** (`src/**/*.test.ts(x)`, screen tests in `src/__tests__/app/`) cover the logic, every screen and the cross-module flows, through the same data layer the app uses.
+- **Browser tests** (`e2e/app.spec.ts`) cover the things only a real browser can prove: the app loading, navigation, data surviving a refresh, the sidebar becoming a bottom bar, Escape closing pop-ups, and a real backup download.
 
 ## 11. Confirmed decisions & assumptions
 

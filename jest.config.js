@@ -18,4 +18,7 @@ module.exports = {
     ...(preset.moduleNameMapper ?? {}),
     '\\.(css|sass|scss)$': '<rootDir>/src/test/style-mock.js',
   },
+  // The e2e/ folder holds Playwright browser tests, which run separately
+  // (`npm run test:e2e`) — Jest must not try to execute them.
+  testPathIgnorePatterns: ['/node_modules/', '/e2e/', '/dist/', '/.expo/'],
 };

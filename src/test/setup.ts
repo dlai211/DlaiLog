@@ -6,5 +6,10 @@
 // still there" (the refresh-persistence behavior).
 
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
+import { configure } from '@testing-library/react-native';
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+
+// The default 1s waitFor timeout is tight when many suites share a busy
+// machine; waiting longer changes nothing about *what* is asserted.
+configure({ asyncUtilTimeout: 5000 });

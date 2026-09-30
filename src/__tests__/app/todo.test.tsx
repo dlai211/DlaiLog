@@ -156,6 +156,20 @@ describe('To-do — Day view', () => {
     });
   });
 
+  it('saves when Enter is pressed in the title field', async () => {
+    mockParams = { date: '2026-09-30' };
+    await renderScreen(<TodoScreen />);
+    await waitFor(() =>
+      expect(screen.getByText('Nothing planned — enjoy it.')).toBeOnTheScreen()
+    );
+
+    fireEvent.press(screen.getByTestId('new-task'));
+    fireEvent.changeText(screen.getByTestId('task-title-input'), 'Enter key task');
+    fireEvent(screen.getByTestId('task-title-input'), 'submitEditing');
+
+    await waitFor(() => expect(screen.getByText('Enter key task')).toBeOnTheScreen());
+  });
+
   it('jumps to a day from the week strip', async () => {
     mockParams = { date: '2026-09-30' };
     await renderScreen(<TodoScreen />);
