@@ -1,13 +1,23 @@
 import {
   doneTasksForDay,
   filterProjects,
+  filterPurchases,
+  groupPurchasesByDay,
+  itemMemory,
+  itemSuggestions,
+  monthSummary,
+  monthTotal,
+  normalizeItemName,
   overdueTasks,
   projectDueLabel,
+  recentIcons,
   sortProjects,
+  storeSuggestions,
+  storesInUse,
   tasksForDay,
   undoneTasksByDay,
 } from '@/store/selectors';
-import type { Project, Task } from '@/store/types';
+import type { Project, Purchase, Task } from '@/store/types';
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   const stamp = '2026-09-30T08:00:00.000Z';
@@ -29,6 +39,22 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     date: '2026-09-30',
     done: false,
     createdAt: '2026-09-30T08:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function makePurchase(overrides: Partial<Purchase> = {}): Purchase {
+  return {
+    id: 'pu1',
+    date: '2026-09-28',
+    itemName: 'Soy sauce',
+    icon: '🍜',
+    category: 'condiment',
+    amount: 1,
+    unit: 'L',
+    totalPrice: 6.45,
+    store: 'Asia Market',
+    createdAt: '2026-09-28T10:00:00.000Z',
     ...overrides,
   };
 }
@@ -175,5 +201,152 @@ describe('undoneTasksByDay', () => {
     expect(Object.keys(byDay).sort()).toEqual(['2026-09-15', '2026-09-30']);
     expect(byDay['2026-09-30'].map((task) => task.id)).toEqual(['timed', 'untimed']);
     expect(byDay['2026-09-15'].map((task) => task.id)).toEqual(['mid-month']);
+  });
+});
+
+describe('normalizeItemName', () => {
+  it('trims and lowercases so "Soy Sauce" and "soy sauce " are one item', () => {
+    expect(normalizeItemName('  Soy Sauce ')).toBe('soy sauce');
+  });
+});
+
+describe('filterPurchases', () => {
+  const purchases = [
+    makePurchase({ id: 'a', date: '2026-09-28', category: 'condiment', store: 'Asia Market' }),
+    makePurchase({ id: 'b', date: '2026-09-15', itemName: 'Rice', category: 'grocery', store: 'SuperMart' }),
+    makePurchase({ id: 'c', date: '2026-08-30', itemName: 'Sponges', category: 'misc', store: 'HomeShop' }),
+  ];
+  const base = { month: '2026-09', category: 'all' as const, store: 'all', search: '' };
+
+  it('keeps only the chosen month', () => {
+    expect(filterPurchases(purchases, base).map((p) => p.id)).toEqual(['a', 'b']);
+  });
+
+  it('narrows by category', () => {
+    expect(filterPurchases(purchases, { ...base, category: 'grocery' }).map((p) => p.id)).toEqual(['b']);
+  });
+
+  it('narrows by store', () => {
+    expect(filterPurchases(purchases, { ...base, store: 'Asia Market' }).map((p) => p.id)).toEqual(['a']);
+  });
+
+  it('searches item names case-insensitively', () => {
+    expect(filterPurchases(purchases, { ...base, search: 'ric' }).map((p) => p.id)).toEqual(['b']);
+    expect(filterPurchases(purchases, { ...base, search: 'zzz' })).toEqual([]);
+  });
+
+  it('combines filters', () => {
+    expect(
+      filterPurchases(purchases, { month: '2026-09', category: 'condiment', store: 'Asia Market', search: 'soy' }).map((p) => p.id)
+    ).toEqual(['a']);
+  });
+});
+
+describe('groupPurchasesByDay', () => {
+  it('groups by day, newest day first, with day totals', () => {
+    const groups = groupPurchasesByDay([
+      makePurchase({ id: 'old', date: '2026-09-10', createdAt: '2026-09-10T10:00:00.000Z', totalPrice: 4 }),
+      makePurchase({ id: 'new-a', date: '2026-09-20', createdAt: '2026-09-20T10:00:00.000Z', totalPrice: 6.45 }),
+      makePurchase({ id: 'new-b', date: '2026-09-20', createdAt: '2026-09-20T18:00:00.000Z', totalPrice: 10.5 }),
+    ]);
+
+    expect(groups.map((group) => group.date)).toEqual(['2026-09-20', '2026-09-10']);
+    expect(groups[0].dayTotal).toBe(16.95);
+    expect(groups[0].purchases.map((p) => p.id)).toEqual(['new-b', 'new-a']);
+    expect(groups[1].dayTotal).toBe(4);
+  });
+
+  it('rounds day totals to cents', () => {
+    const groups = groupPurchasesByDay([
+      makePurchase({ id: 'a', totalPrice: 0.1 }),
+      makePurchase({ id: 'b', totalPrice: 0.2 }),
+    ]);
+    expect(groups[0].dayTotal).toBe(0.3);
+  });
+});
+
+describe('monthSummary / monthTotal', () => {
+  const purchases = [
+    makePurchase({ id: 'a', date: '2026-09-28', totalPrice: 6.45, store: 'Asia Market', category: 'condiment' }),
+    makePurchase({ id: 'b', date: '2026-09-15', totalPrice: 20, store: 'SuperMart', category: 'grocery' }),
+    makePurchase({ id: 'c', date: '2026-08-30', totalPrice: 99, store: 'HomeShop', category: 'misc' }),
+  ];
+
+  it('totals only the chosen month', () => {
+    expect(monthTotal(purchases, '2026-09')).toBe(26.45);
+    expect(monthTotal(purchases, '2026-08')).toBe(99);
+    expect(monthTotal(purchases, '2026-07')).toBe(0);
+  });
+
+  it('finds the top store and category by spend', () => {
+    expect(monthSummary(purchases, '2026-09')).toEqual({
+      total: 26.45,
+      count: 2,
+      topStore: 'SuperMart',
+      topCategory: 'grocery',
+    });
+  });
+
+  it('reports an empty month cleanly', () => {
+    expect(monthSummary(purchases, '2026-07')).toEqual({ total: 0, count: 0 });
+  });
+});
+
+describe('itemMemory / itemSuggestions', () => {
+  const purchases = [
+    makePurchase({ id: 'old', date: '2026-08-01', itemName: 'Soy sauce', totalPrice: 5.2, icon: '🍜', store: 'Asia Market' }),
+    makePurchase({ id: 'new', date: '2026-09-28', itemName: 'soy sauce', totalPrice: 6.45, icon: '🍶', store: 'SuperMart' }),
+    makePurchase({ id: 'rice', date: '2026-09-15', itemName: 'Rice', icon: '🍚', category: 'grocery', unit: 'kg', amount: 5 }),
+  ];
+
+  it('remembers the most recent purchase of each item', () => {
+    const memory = itemMemory(purchases);
+    expect(Object.keys(memory).sort()).toEqual(['rice', 'soy sauce']);
+    expect(memory['soy sauce']).toMatchObject({
+      name: 'soy sauce',
+      icon: '🍶',
+      store: 'SuperMart',
+      lastPrice: 6.45,
+      lastDate: '2026-09-28',
+    });
+  });
+
+  it('suggests matches by prefix and skips the exact name', () => {
+    expect(itemSuggestions(purchases, 'so').map((entry) => entry.name)).toEqual(['soy sauce']);
+    expect(itemSuggestions(purchases, 'soy sauce')).toEqual([]);
+    expect(itemSuggestions(purchases, '')).toEqual([]);
+  });
+
+  it('orders suggestions by most recent purchase', () => {
+    const more = [
+      ...purchases,
+      makePurchase({ id: 'oil', date: '2026-09-29', itemName: 'Olive oil', totalPrice: 12 }),
+    ];
+    expect(itemSuggestions(more, 'o').map((entry) => entry.name)).toEqual(['Olive oil']);
+  });
+});
+
+describe('storeSuggestions / storesInUse / recentIcons', () => {
+  const purchases = [
+    makePurchase({ id: 'a', store: 'SuperMart', icon: '🍜', date: '2026-09-01' }),
+    makePurchase({ id: 'b', store: 'SuperMart', icon: '🍚', date: '2026-09-05' }),
+    makePurchase({ id: 'c', store: 'Asia Market', icon: '🧽', date: '2026-09-10' }),
+  ];
+
+  it('suggests stores most-used first, skipping the exact input', () => {
+    // Both "SuperMart" and "Asia Market" contain "ma"; the used-more-often one leads.
+    expect(storeSuggestions(purchases, 'ma')).toEqual(['SuperMart', 'Asia Market']);
+    expect(storeSuggestions(purchases, 'super')).toEqual(['SuperMart']);
+    expect(storeSuggestions(purchases, 'SuperMart')).toEqual([]);
+    expect(storeSuggestions(purchases, '')).toEqual(['SuperMart', 'Asia Market']);
+  });
+
+  it('lists the stores in use alphabetically', () => {
+    expect(storesInUse(purchases)).toEqual(['Asia Market', 'SuperMart']);
+  });
+
+  it('lists the most recently used icons, newest first, without repeats', () => {
+    expect(recentIcons(purchases)).toEqual(['🧽', '🍚', '🍜']);
+    expect(recentIcons(purchases, 2)).toEqual(['🧽', '🍚']);
   });
 });
