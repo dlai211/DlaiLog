@@ -106,9 +106,12 @@ export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** Item names are compared lowercased and trimmed, everywhere. */
+/**
+ * An item's identity: trimmed, lowercased, inner whitespace squeezed to one
+ * space — so "Soy  Sauce" and "soy sauce" are one item with one price history.
+ */
 export function normalizeItemName(name: string): string {
-  return name.trim().toLowerCase();
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 export type CategoryFilter = Category | 'all';
@@ -287,4 +290,119 @@ export function recentIcons(purchases: Purchase[], limit = 8): string[] {
     if (icons.length >= limit) break;
   }
   return icons;
+}
+
+// ---------------------------------------------------------------------------
+// Grocery Tracker — entirely derived from purchases, grouped by item name
+// ---------------------------------------------------------------------------
+
+export interface GroceryHistoryEntry {
+  /** The purchase this line came from — "edit in Spending" uses it. */
+  id: string;
+  date: string;
+  store: string;
+  amount: number;
+  unit: Unit;
+  totalPrice: number;
+  unitPrice: number;
+}
+
+export interface GroceryItem {
+  /** Normalized item name — the item's identity. */
+  key: string;
+  /** Spelling from the most recent purchase. */
+  name: string;
+  icon: string;
+  /** Category of the most recent purchase. */
+  category: Category;
+  unit: Unit;
+  /** Every purchase of this item, oldest first. */
+  history: GroceryHistoryEntry[];
+  latestUnitPrice: number;
+  previousUnitPrice: number | null;
+  /** Change from the previous purchase's unit price, in percent. */
+  changePercent: number | null;
+  low: number;
+  high: number;
+  average: number;
+  totalSpent: number;
+  lastDate: string;
+  lastStore: string;
+}
+
+/**
+ * The Grocery Tracker's whole dataset: one entry per item, with its price
+ * history and statistics. Alphabetical, so the list is easy to scan.
+ */
+export function groceryItems(purchases: Purchase[]): GroceryItem[] {
+  const groups = new Map<string, Purchase[]>();
+  for (const purchase of purchases) {
+    const key = normalizeItemName(purchase.itemName);
+    const list = groups.get(key) ?? [];
+    list.push(purchase);
+    groups.set(key, list);
+  }
+
+  const items: GroceryItem[] = [];
+  for (const [key, group] of groups) {
+    const sorted = [...group].sort((a, b) =>
+      a.date === b.date ? a.createdAt.localeCompare(b.createdAt) : a.date.localeCompare(b.date)
+    );
+
+    const history: GroceryHistoryEntry[] = sorted.map((purchase) => ({
+      id: purchase.id,
+      date: purchase.date,
+      store: purchase.store,
+      amount: purchase.amount,
+      unit: purchase.unit,
+      totalPrice: purchase.totalPrice,
+      unitPrice: purchase.amount > 0 ? purchase.totalPrice / purchase.amount : 0,
+    }));
+
+    const prices = history.map((entry) => entry.unitPrice);
+    const latest = sorted[sorted.length - 1];
+    const latestUnitPrice = prices[prices.length - 1];
+    const previousUnitPrice = prices.length > 1 ? prices[prices.length - 2] : null;
+    const changePercent =
+      previousUnitPrice !== null && previousUnitPrice > 0
+        ? ((latestUnitPrice - previousUnitPrice) / previousUnitPrice) * 100
+        : null;
+
+    items.push({
+      key,
+      name: latest.itemName.trim().replace(/\s+/g, ' '),
+      icon: latest.icon,
+      category: latest.category,
+      unit: latest.unit,
+      history,
+      latestUnitPrice,
+      previousUnitPrice,
+      changePercent,
+      low: Math.min(...prices),
+      high: Math.max(...prices),
+      average: prices.reduce((sum, price) => sum + price, 0) / prices.length,
+      totalSpent: round2(sorted.reduce((sum, purchase) => sum + purchase.totalPrice, 0)),
+      lastDate: latest.date,
+      lastStore: latest.store,
+    });
+  }
+
+  return items.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** How many items sit in each category tab. */
+export function categoryCounts(items: GroceryItem[]): Record<Category, number> {
+  const counts: Record<Category, number> = { condiment: 0, grocery: 0, misc: 0 };
+  for (const item of items) {
+    counts[item.category] += 1;
+  }
+  return counts;
+}
+
+/** The items whose unit price rose or fell the most, biggest move first. */
+export function biggestPriceMoves(items: GroceryItem[], limit = 3): GroceryItem[] {
+  return items
+    .filter((item) => item.changePercent !== null && Math.abs(item.changePercent) > 0.5)
+    .sort((a, b) => Math.abs(b.changePercent ?? 0) - Math.abs(a.changePercent ?? 0))
+    .slice(0, limit);
 }

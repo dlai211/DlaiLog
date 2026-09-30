@@ -1,7 +1,10 @@
 import {
+  biggestPriceMoves,
+  categoryCounts,
   doneTasksForDay,
   filterProjects,
   filterPurchases,
+  groceryItems,
   groupPurchasesByDay,
   itemMemory,
   itemSuggestions,
@@ -348,5 +351,123 @@ describe('storeSuggestions / storesInUse / recentIcons', () => {
   it('lists the most recently used icons, newest first, without repeats', () => {
     expect(recentIcons(purchases)).toEqual(['🧽', '🍚', '🍜']);
     expect(recentIcons(purchases, 2)).toEqual(['🧽', '🍚']);
+  });
+});
+
+describe('groceryItems', () => {
+  it('groups purchases by item name and sorts the history oldest first', () => {
+    const items = groceryItems([
+      makePurchase({ id: 'sep', date: '2026-09-28', totalPrice: 6.45, amount: 1, unit: 'L' }),
+      makePurchase({ id: 'jul', date: '2026-07-01', totalPrice: 5.2, amount: 1, unit: 'L' }),
+      makePurchase({ id: 'rice', itemName: 'Rice', totalPrice: 10.5, amount: 5, unit: 'kg' }),
+    ]);
+
+    expect(items.map((item) => item.name)).toEqual(['Rice', 'Soy sauce']);
+    const soy = items.find((item) => item.key === 'soy sauce')!;
+    expect(soy.history.map((entry) => entry.id)).toEqual(['jul', 'sep']);
+    expect(soy.history[0]).toMatchObject({ unitPrice: 5.2, store: 'Asia Market' });
+  });
+
+  it('computes the price statistics and the change against the previous purchase', () => {
+    const items = groceryItems([
+      makePurchase({ id: 'jul', date: '2026-07-01', totalPrice: 5.0, amount: 1, unit: 'L' }),
+      makePurchase({ id: 'aug', date: '2026-08-01', totalPrice: 5.5, amount: 1, unit: 'L' }),
+      makePurchase({ id: 'sep', date: '2026-09-28', totalPrice: 6.0, amount: 1, unit: 'L' }),
+    ]);
+
+    const soy = items[0];
+    expect(soy.latestUnitPrice).toBeCloseTo(6.0);
+    expect(soy.previousUnitPrice).toBeCloseTo(5.5);
+    expect(soy.changePercent).toBeCloseTo(9.0909, 3);
+    expect(soy.low).toBeCloseTo(5.0);
+    expect(soy.high).toBeCloseTo(6.0);
+    expect(soy.average).toBeCloseTo(5.5);
+    expect(soy.totalSpent).toBeCloseTo(16.5);
+  });
+
+  it('computes unit price from amount, not just the total', () => {
+    const items = groceryItems([
+      makePurchase({ id: 'a', itemName: 'Rice', amount: 5, unit: 'kg', totalPrice: 10.5 }),
+      makePurchase({ id: 'b', itemName: 'Rice', amount: 2, unit: 'kg', totalPrice: 5.0, date: '2026-09-29', createdAt: '2026-09-29T10:00:00.000Z' }),
+    ]);
+
+    expect(items[0].history[0].unitPrice).toBeCloseTo(2.1);
+    expect(items[0].history[1].unitPrice).toBeCloseTo(2.5);
+    expect(items[0].changePercent).toBeCloseTo(19.047, 2);
+  });
+
+  it('merges different spellings of the same item and follows the newest details', () => {
+    const items = groceryItems([
+      makePurchase({ id: 'old', date: '2026-08-01', itemName: 'soy sauce', icon: '🍜', store: 'Asia Market' }),
+      makePurchase({
+        id: 'new',
+        date: '2026-09-28',
+        itemName: 'Soy  Sauce',
+        icon: '🍶',
+        store: 'SuperMart',
+        category: 'grocery',
+      }),
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe('Soy Sauce');
+    expect(items[0].icon).toBe('🍶');
+    expect(items[0].category).toBe('grocery');
+    expect(items[0].lastStore).toBe('SuperMart');
+    expect(items[0].history).toHaveLength(2);
+  });
+
+  it('has no change for an item bought only once', () => {
+    const items = groceryItems([makePurchase({ id: 'only' })]);
+    expect(items[0].previousUnitPrice).toBeNull();
+    expect(items[0].changePercent).toBeNull();
+    expect(items[0].low).toBeCloseTo(items[0].high);
+  });
+
+  it('drops a deleted purchase from the history and statistics', () => {
+    const all = [
+      makePurchase({ id: 'a', date: '2026-08-01', totalPrice: 5 }),
+      makePurchase({ id: 'b', date: '2026-09-28', totalPrice: 6 }),
+    ];
+
+    const before = groceryItems(all)[0];
+    expect(before.history).toHaveLength(2);
+    expect(before.changePercent).toBeCloseTo(20);
+
+    const after = groceryItems(all.filter((purchase) => purchase.id !== 'b'))[0];
+    expect(after.history).toHaveLength(1);
+    expect(after.latestUnitPrice).toBeCloseTo(5);
+    expect(after.changePercent).toBeNull();
+  });
+});
+
+describe('categoryCounts / biggestPriceMoves', () => {
+  it('counts the items in each category tab', () => {
+    const items = groceryItems([
+      makePurchase({ id: 'a' }),
+      makePurchase({ id: 'b', itemName: 'Rice', category: 'grocery' }),
+      makePurchase({ id: 'c', itemName: 'Sponges', category: 'misc' }),
+      makePurchase({ id: 'd', itemName: 'Olive oil', category: 'grocery' }),
+    ]);
+
+    expect(categoryCounts(items)).toEqual({ condiment: 1, grocery: 2, misc: 1 });
+  });
+
+  it('surfaces the biggest price moves, ignoring tiny ones and first purchases', () => {
+    const items = groceryItems([
+      // +20%: 5 → 6
+      makePurchase({ id: 'a1', itemName: 'Olive oil', date: '2026-08-01', totalPrice: 5 }),
+      makePurchase({ id: 'a2', itemName: 'Olive oil', date: '2026-09-01', totalPrice: 6, createdAt: '2026-09-01T10:00:00.000Z' }),
+      // -10%: 10 → 9
+      makePurchase({ id: 'b1', itemName: 'Rice', date: '2026-08-01', totalPrice: 10 }),
+      makePurchase({ id: 'b2', itemName: 'Rice', date: '2026-09-01', totalPrice: 9, createdAt: '2026-09-01T10:00:00.000Z' }),
+      // 0%: no move
+      makePurchase({ id: 'c1', itemName: 'Soy sauce', date: '2026-08-01', totalPrice: 6.45 }),
+      makePurchase({ id: 'c2', itemName: 'Soy sauce', date: '2026-09-01', totalPrice: 6.45, createdAt: '2026-09-01T10:00:00.000Z' }),
+      // single purchase: never a "move"
+      makePurchase({ id: 'd1', itemName: 'Sponges', date: '2026-09-01' }),
+    ]);
+
+    expect(biggestPriceMoves(items).map((item) => item.name)).toEqual(['Olive oil', 'Rice']);
   });
 });
