@@ -1,9 +1,10 @@
 import { usePathname, useRouter, type Href } from 'expo-router';
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { BackupModal } from '@/components/domain/backup-modal';
 import { Button } from '@/components/ui/button';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -36,10 +37,11 @@ export function isNavItemActive(pathname: string, href: string): boolean {
 export function AppShell({ children }: { children: ReactNode }) {
   const width = useWindowWidth();
   const wide = isWideLayout(width);
+  const [backupVisible, setBackupVisible] = useState(false);
 
   return (
     <ThemedView style={[styles.root, wide ? styles.rootRow : styles.rootColumn]}>
-      {wide ? <Sidebar /> : null}
+      {wide ? <Sidebar onOpenBackup={() => setBackupVisible(true)} /> : null}
       <View style={styles.main}>
         <ScrollView
           style={styles.scroll}
@@ -48,12 +50,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           <View style={styles.content}>{children}</View>
         </ScrollView>
       </View>
-      {wide ? null : <BottomBar />}
+      {wide ? null : <BottomBar onOpenBackup={() => setBackupVisible(true)} />}
+
+      {backupVisible ? (
+        <BackupModal visible onClose={() => setBackupVisible(false)} />
+      ) : null}
     </ThemedView>
   );
 }
 
-function Sidebar() {
+function Sidebar({ onOpenBackup }: { onOpenBackup: () => void }) {
   const theme = useTheme();
   const pathname = usePathname();
   const router = useRouter();
@@ -80,7 +86,7 @@ function Sidebar() {
         ))}
       </View>
       <View style={styles.spacer} />
-      <BackupButton compact={false} />
+      <BackupButton compact={false} onPress={onOpenBackup} />
       <ThemedText type="caption" themeColor="textTertiary">
         Saved on this PC
       </ThemedText>
@@ -88,7 +94,7 @@ function Sidebar() {
   );
 }
 
-function BottomBar() {
+function BottomBar({ onOpenBackup }: { onOpenBackup: () => void }) {
   const theme = useTheme();
   const pathname = usePathname();
   const router = useRouter();
@@ -109,7 +115,7 @@ function BottomBar() {
           onPress={() => router.push(item.href)}
         />
       ))}
-      <BackupButton compact />
+      <BackupButton compact onPress={onOpenBackup} />
     </ThemedView>
   );
 }
@@ -153,15 +159,13 @@ function NavButton({
   );
 }
 
-function BackupButton({ compact }: { compact: boolean }) {
-  // Wired up in Phase 8 (backup & restore); visible from the start so the
-  // navigation never changes shape.
+function BackupButton({ compact, onPress }: { compact: boolean; onPress: () => void }) {
   return (
     <Button
       testID="backup-button"
       label={compact ? '💾' : '💾  Backup / Restore'}
       variant="secondary"
-      disabled
+      onPress={onPress}
       style={compact ? styles.backupCompact : undefined}
     />
   );

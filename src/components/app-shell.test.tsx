@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { AppShell, isNavItemActive, isWideLayout, NAV_ITEMS } from '@/components/app-shell';
+import { renderScreen } from '@/test/helpers';
 
 // Configurable stand-ins for the router and the window size. Names start with
 // "mock" so jest's hoisted mock factories may reference them.
@@ -92,13 +93,18 @@ describe('AppShell', () => {
     expect(screen.getByTestId('nav-home')).not.toBeSelected();
   });
 
-  it('offers Backup / Restore in the sidebar even before data exists (disabled until Phase 8)', () => {
+  it('offers Backup / Restore in the sidebar, which opens the backup dialog', async () => {
     mockWindowWidth = 1200;
-    render(<AppShell>{null}</AppShell>);
+    await renderScreen(<AppShell>{null}</AppShell>);
 
     const backup = screen.getByTestId('backup-button');
     expect(backup).toBeOnTheScreen();
-    expect(backup).toBeDisabled();
+    expect(backup).not.toBeDisabled();
     expect(screen.getByText('Saved on this PC')).toBeOnTheScreen();
+
+    expect(screen.queryByTestId('backup-modal')).not.toBeOnTheScreen();
+    fireEvent.press(backup);
+    expect(screen.getByTestId('backup-modal')).toBeOnTheScreen();
+    expect(screen.getByTestId('backup-download')).toBeOnTheScreen();
   });
 });

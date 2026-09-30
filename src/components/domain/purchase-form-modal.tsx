@@ -258,6 +258,7 @@ function PurchaseForm({
         placeholder="e.g. SuperMart"
         error={errors.store}
         testID="purchase-store"
+        onSubmitEditing={handleSubmit}
       />
 
       <DatePicker label="Date" value={date} onChange={setDate} testID="purchase-date" />

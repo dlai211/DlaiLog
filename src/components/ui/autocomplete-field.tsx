@@ -26,6 +26,7 @@ export function AutocompleteField({
   required = false,
   error,
   testID,
+  onSubmitEditing,
 }: {
   label: string;
   value: string;
@@ -36,6 +37,7 @@ export function AutocompleteField({
   required?: boolean;
   error?: string;
   testID: string;
+  onSubmitEditing?: () => void;
 }) {
   const theme = useTheme();
   const [suppressed, setSuppressed] = useState(false);
@@ -50,6 +52,7 @@ export function AutocompleteField({
         error={error}
         placeholder={placeholder}
         testID={testID}
+        onSubmitEditing={onSubmitEditing}
         onChangeText={(text) => {
           setSuppressed(false);
           onChangeText(text);
