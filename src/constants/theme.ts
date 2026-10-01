@@ -3,8 +3,6 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
-import '@/global.css';
-
 import { Platform } from 'react-native';
 
 export const Colors = {
@@ -14,6 +12,20 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    /** DlaiLog additions — see PRD §2.3 */
+    border: '#D8DBE0',
+    textTertiary: '#8A8F98',
+    /** Filled buttons, links, chart accents */
+    primary: '#1A73E8',
+    primaryText: '#FFFFFF',
+    /** Strong red for destructive buttons */
+    danger: '#D93025',
+    /** Red used as text (overdue, price went up) */
+    dangerText: '#C5221F',
+    successText: '#137333',
+    condiment: '#B45309',
+    grocery: '#137333',
+    misc: '#1D4ED8',
   },
   dark: {
     text: '#ffffff',
@@ -21,6 +33,16 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    border: '#33363B',
+    textTertiary: '#7C828B',
+    primary: '#1A73E8',
+    primaryText: '#FFFFFF',
+    danger: '#F04438',
+    dangerText: '#F87171',
+    successText: '#4ADE80',
+    condiment: '#FBBF24',
+    grocery: '#4ADE80',
+    misc: '#60A5FA',
   },
 } as const;
 
