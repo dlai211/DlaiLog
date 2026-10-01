@@ -18,6 +18,7 @@ import { RowActions } from '@/components/ui/row-actions';
 import { Select } from '@/components/ui/select';
 import { Spacing } from '@/constants/theme';
 import { CATEGORY_META, CATEGORY_ORDER } from '@/data/categories';
+import { IngredientImage } from '@/data/ingredient-images';
 import { useTheme } from '@/hooks/use-theme';
 import { currentMonthKey, shiftMonthKey } from '@/lib/dates';
 import { formatAmountUnit, formatLongDate, formatMoney, formatMonthKey, formatUnitPrice } from '@/lib/format';
@@ -182,7 +183,7 @@ export default function SpendingScreen() {
 
       {groups.length === 0 ? (
         <EmptyState
-          emoji="🧾"
+          icon="spending"
           message={
             hasAnyPurchase
               ? 'No purchases match your filters.'
@@ -246,7 +247,12 @@ function PurchaseRow({
 
   return (
     <View style={styles.purchaseRow} testID={`purchase-row-${purchase.id}`}>
-      <ThemedText style={styles.purchaseIcon}>{purchase.icon}</ThemedText>
+      <IngredientImage
+        imageKey={purchase.imageKey}
+        icon={purchase.icon}
+        size={36}
+        testID={`purchase-picture-${purchase.id}`}
+      />
 
       <Pressable
         testID={`purchase-open-${purchase.id}`}

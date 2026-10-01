@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import { isValidDB } from '@/store/storage';
+import { migrateDB } from '@/store/storage';
 import { DB, DB_VERSION } from '@/store/types';
 
 /**
@@ -88,6 +88,36 @@ export function validateRecords(db: DB): string | null {
     }
   }
 
+  for (const item of db.inventory) {
+    if (
+      !isRecord(item) ||
+      typeof item.id !== 'string' ||
+      typeof item.name !== 'string' ||
+      typeof item.quantity !== 'number' ||
+      !UNITS.has(String(item.unit))
+    ) {
+      return 'an inventory item is missing its name, quantity or unit';
+    }
+  }
+
+  for (const meal of db.meals) {
+    if (
+      !isRecord(meal) ||
+      typeof meal.id !== 'string' ||
+      typeof meal.name !== 'string' ||
+      !Array.isArray(meal.ingredients) ||
+      typeof meal.steps !== 'string'
+    ) {
+      return 'a meal is missing its name, ingredients or steps';
+    }
+  }
+
+  for (const item of db.shopping) {
+    if (!isRecord(item) || typeof item.id !== 'string' || typeof item.name !== 'string') {
+      return 'a shopping-list entry is missing its name';
+    }
+  }
+
   return null;
 }
 
@@ -114,23 +144,25 @@ export function parseBackupFile(text: string): ParseBackupResult {
     return { ok: false, error: 'That file was not created by DlaiLog.' };
   }
 
-  if (candidate.version !== DB_VERSION) {
+  if (candidate.version !== 1 && candidate.version !== DB_VERSION) {
     return {
       ok: false,
       error: `That backup is from a different version of DlaiLog (version ${String(candidate.version)}).`,
     };
   }
 
-  if (!isValidDB(candidate.data)) {
+  // Version-1 backups are brought forward, so an old file still restores.
+  const migrated = migrateDB(candidate.data);
+  if (!migrated) {
     return { ok: false, error: 'That backup is damaged — its data is incomplete.' };
   }
 
-  const problem = validateRecords(candidate.data);
+  const problem = validateRecords(migrated);
   if (problem) {
     return { ok: false, error: `That backup is damaged — ${problem}.` };
   }
 
-  return { ok: true, db: candidate.data };
+  return { ok: true, db: migrated };
 }
 
 // ---------------------------------------------------------------------------

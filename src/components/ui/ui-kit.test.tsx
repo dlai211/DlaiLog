@@ -204,7 +204,7 @@ describe('ProgressSlider', () => {
 
 describe('EmptyState', () => {
   it('shows its message and hint', () => {
-    render(<EmptyState emoji="🌤" message="Nothing planned today" hint="Add a task to get going" />);
+    render(<EmptyState icon="sun" message="Nothing planned today" hint="Add a task to get going" />);
 
     expect(screen.getByText('Nothing planned today')).toBeOnTheScreen();
     expect(screen.getByText('Add a task to get going')).toBeOnTheScreen();

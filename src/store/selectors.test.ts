@@ -14,7 +14,7 @@ import {
   normalizeItemName,
   overdueTasks,
   projectDueLabel,
-  recentIcons,
+  recentTileKeys,
   sortProjects,
   storeSuggestions,
   storesInUse,
@@ -330,11 +330,11 @@ describe('itemMemory / itemSuggestions', () => {
   });
 });
 
-describe('storeSuggestions / storesInUse / recentIcons', () => {
+describe('storeSuggestions / storesInUse / recentTileKeys', () => {
   const purchases = [
-    makePurchase({ id: 'a', store: 'SuperMart', icon: '🍜', date: '2026-09-01' }),
-    makePurchase({ id: 'b', store: 'SuperMart', icon: '🍚', date: '2026-09-05' }),
-    makePurchase({ id: 'c', store: 'Asia Market', icon: '🧽', date: '2026-09-10' }),
+    makePurchase({ id: 'a', store: 'SuperMart', imageKey: 'noodles', date: '2026-09-01' }),
+    makePurchase({ id: 'b', store: 'SuperMart', imageKey: 'rice', date: '2026-09-05' }),
+    makePurchase({ id: 'c', store: 'Asia Market', imageKey: 'cleaning-tools', date: '2026-09-10' }),
   ];
 
   it('suggests stores most-used first, skipping the exact input', () => {
@@ -349,9 +349,9 @@ describe('storeSuggestions / storesInUse / recentIcons', () => {
     expect(storesInUse(purchases)).toEqual(['Asia Market', 'SuperMart']);
   });
 
-  it('lists the most recently used icons, newest first, without repeats', () => {
-    expect(recentIcons(purchases)).toEqual(['🧽', '🍚', '🍜']);
-    expect(recentIcons(purchases, 2)).toEqual(['🧽', '🍚']);
+  it('lists the most recently used pictures, newest first, without repeats', () => {
+    expect(recentTileKeys(purchases)).toEqual(['cleaning-tools', 'rice', 'noodles']);
+    expect(recentTileKeys(purchases, 2)).toEqual(['cleaning-tools', 'rice']);
   });
 });
 

@@ -43,8 +43,8 @@ test('a purchase logged in Spending appears in the Grocery Tracker, with its uni
 
   await page.getByTestId('new-purchase').click();
   await page.getByTestId('purchase-name').fill('Soy sauce');
-  await page.getByTestId('purchase-icon-search').fill('soy');
-  await page.getByTestId('purchase-icon-option-0').click();
+  await page.getByTestId('purchase-picture-search').fill('soy');
+  await page.getByTestId('purchase-picture-option-soy-sauce').click();
   await page.getByTestId('purchase-category-condiment').click();
   await page.getByTestId('purchase-amount').fill('1');
   await page.getByTestId('purchase-unit').click();
@@ -86,6 +86,68 @@ test('Escape closes a pop-up', async ({ page }) => {
 
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('purchase-form')).toHaveCount(0);
+});
+
+test('the month view shows task chips, and a chip opens the editor', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('home-quick-task').fill('Chip task');
+  await page.getByTestId('home-quick-task-add').click();
+  await expect(page.getByText('Chip task')).toBeVisible();
+
+  await page.getByTestId('nav-todo').click();
+  await page.getByTestId('todo-view-month').click();
+
+  const chip = page.locator('[data-testid^="month-task-"]').first();
+  await expect(chip).toBeVisible();
+  await chip.click();
+
+  // The chip opens the editor and does not also jump into the day view.
+  await expect(page.getByTestId('task-form')).toBeVisible();
+  await page.getByTestId('task-cancel').click();
+  await expect(page.getByTestId('todo-month-grid')).toBeVisible();
+});
+
+test('no console errors or warnings anywhere in the app', async ({ page }) => {
+  const problems: string[] = [];
+  page.on('console', (message) => {
+    const type = message.type();
+    if (type === 'error' || type === 'warning') {
+      problems.push(`[${type}] ${message.text().split('\n')[0]}`);
+    }
+  });
+  page.on('pageerror', (error) => problems.push(`[pageerror] ${error.message}`));
+
+  await page.goto('/');
+  await expect(page.getByTestId('app-shell-sidebar')).toBeVisible();
+
+  // Give every screen real data to render, then visit and poke each one.
+  await page.getByTestId('home-quick-task').fill('Console guard task');
+  await page.getByTestId('home-quick-task-add').click();
+  await expect(page.getByText('Console guard task')).toBeVisible();
+
+  await page.getByTestId('nav-projects').click();
+  await page.getByTestId('new-project').click();
+  await page.getByTestId('project-name').fill('Console guard project');
+  await page.getByTestId('project-save').click();
+  await expect(page.getByText('Console guard project')).toBeVisible();
+  // Hovering the row actions inside a tappable card was the reported crash site.
+  await page.locator('[data-testid^="project-edit-"]').first().hover();
+
+  await page.getByTestId('nav-spending').click();
+  await page.getByTestId('new-purchase').click();
+  await page.getByTestId('purchase-cancel').click();
+
+  await page.getByTestId('nav-todo').click();
+  await page.getByTestId('todo-view-month').click();
+  await page.getByTestId('todo-view-day').click();
+
+  await page.getByTestId('nav-grocery').click();
+  await page.getByTestId('nav-home').click();
+
+  await page.getByTestId('backup-button').click();
+  await page.getByTestId('backup-modal-close').click();
+
+  expect(problems).toEqual([]);
 });
 
 test('downloading a backup really produces a file', async ({ page }) => {

@@ -2,7 +2,19 @@
 // Each module's selectors live in their own section.
 
 import { daysBetween, monthKeyOf, shiftMonthKey, todayKey } from '@/lib/dates';
-import type { Category, DB, Project, ProjectStatus, Purchase, Task, Unit } from '@/store/types';
+import type {
+  Category,
+  DB,
+  Ingredient,
+  Meal,
+  MealIngredient,
+  Project,
+  ProjectStatus,
+  Purchase,
+  ShoppingItem,
+  Task,
+  Unit,
+} from '@/store/types';
 
 // ---------------------------------------------------------------------------
 // Projects
@@ -203,7 +215,10 @@ export function monthSummary(purchases: Purchase[], month: string): MonthSummary
 export interface ItemMemoryEntry {
   /** Most recent spelling of the name. */
   name: string;
-  icon: string;
+  /** Ingredient tile key, when the item has a picture. */
+  imageKey?: string;
+  /** Legacy emoji icon, kept for version-1 data. */
+  icon?: string;
   category: Category;
   unit: Unit;
   store: string;
@@ -231,6 +246,7 @@ export function itemMemory(purchases: Purchase[]): Record<string, ItemMemoryEntr
   for (const [key, purchase] of latest) {
     memory[key] = {
       name: purchase.itemName.trim(),
+      imageKey: purchase.imageKey,
       icon: purchase.icon,
       category: purchase.category,
       unit: purchase.unit,
@@ -242,27 +258,87 @@ export function itemMemory(purchases: Purchase[]): Record<string, ItemMemoryEntr
   return memory;
 }
 
-/** Items whose name starts with what has been typed, most recent first. */
+/**
+ * A forgiving identity used to spot "the same thing, typed differently":
+ * case, spacing and punctuation are ignored, so "soy-sauce", "Soy Sauce" and
+ * "soysauce" all collapse to one key. `normalizeItemName` stays the stored
+ * identity; this is only for recognising near-misses while typing.
+ */
+export function looseKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+/**
+ * Items matching what has been typed — names that start with it first, then
+ * names that merely contain it (ignoring punctuation), each group most-recent
+ * first. This is what stops "soy sauce" and "soy-sauce" becoming two items.
+ */
 export function itemSuggestions(purchases: Purchase[], prefix: string, limit = 5): ItemMemoryEntry[] {
   const query = normalizeItemName(prefix);
   if (!query) return [];
 
-  return Object.entries(itemMemory(purchases))
-    .filter(([key]) => key !== query && key.startsWith(query))
+  const loose = looseKey(prefix);
+  const entries = Object.entries(itemMemory(purchases)).filter(([key]) => key !== query);
+
+  const prefixMatches = entries.filter(([key]) => key.startsWith(query));
+  const looseMatches = entries.filter(
+    ([key]) => !key.startsWith(query) && loose.length >= 3 && looseKey(key).includes(loose)
+  );
+
+  return [...prefixMatches, ...looseMatches]
     .map(([, entry]) => entry)
     .sort((a, b) => b.lastDate.localeCompare(a.lastDate))
     .slice(0, limit);
 }
 
-/** Stores whose name contains what has been typed, most used first. */
+/**
+ * The saved name this typed name almost certainly means — e.g. typing
+ * "soysauce" when "Soy sauce" is already tracked. Null when there is nothing
+ * similar, or when the typed name already normalises to a known item (in
+ * which case they merge anyway).
+ */
+export function findSimilarItemName(purchases: Purchase[], typed: string): string | null {
+  const loose = looseKey(typed);
+  if (loose.length < 3) return null;
+
+  for (const entry of Object.values(itemMemory(purchases))) {
+    if (looseKey(entry.name) === loose && normalizeItemName(entry.name) !== normalizeItemName(typed)) {
+      return entry.name;
+    }
+  }
+  return null;
+}
+
+/** Same idea as `findSimilarItemName`, for store names. */
+export function findSimilarStore(purchases: Purchase[], typed: string): string | null {
+  const loose = looseKey(typed);
+  if (loose.length < 3) return null;
+
+  for (const store of storesInUse(purchases)) {
+    if (looseKey(store) === loose && normalizeItemName(store) !== normalizeItemName(typed)) {
+      return store;
+    }
+  }
+  return null;
+}
+
+/** Stores matching what has been typed (exact-ish first), most used first. */
 export function storeSuggestions(purchases: Purchase[], prefix: string, limit = 5): string[] {
   const query = prefix.trim().toLowerCase();
+  const loose = looseKey(prefix);
   const counts = new Map<string, number>();
 
   for (const purchase of purchases) {
     const store = purchase.store.trim();
     if (!store) continue;
-    if (query && (!store.toLowerCase().includes(query) || store.toLowerCase() === query)) continue;
+
+    if (query) {
+      const lowered = store.toLowerCase();
+      const normalizedHit = lowered !== query && lowered.includes(query);
+      const looseHit = loose.length >= 3 && looseKey(store) !== loose && looseKey(store).includes(loose);
+      if (!normalizedHit && !looseHit) continue;
+    }
+
     counts.set(store, (counts.get(store) ?? 0) + 1);
   }
 
@@ -279,17 +355,18 @@ export function storesInUse(purchases: Purchase[]): string[] {
   );
 }
 
-/** The icons used most recently, newest first — shown at the top of the picker. */
-export function recentIcons(purchases: Purchase[], limit = 8): string[] {
+/** The pictures used most recently, newest first — shown first in the picker. */
+export function recentTileKeys(purchases: Purchase[], limit = 6): string[] {
   const sorted = [...purchases].sort((a, b) => (isNewerPurchase(a, b) ? -1 : 1));
-  const icons: string[] = [];
+  const keys: string[] = [];
 
   for (const purchase of sorted) {
-    if (!purchase.icon || icons.includes(purchase.icon)) continue;
-    icons.push(purchase.icon);
-    if (icons.length >= limit) break;
+    const key = purchase.imageKey;
+    if (!key || keys.includes(key)) continue;
+    keys.push(key);
+    if (keys.length >= limit) break;
   }
-  return icons;
+  return keys;
 }
 
 // ---------------------------------------------------------------------------
@@ -312,7 +389,10 @@ export interface GroceryItem {
   key: string;
   /** Spelling from the most recent purchase. */
   name: string;
-  icon: string;
+  /** Ingredient tile key from the most recent purchase. */
+  imageKey?: string;
+  /** Legacy emoji icon, kept for version-1 data. */
+  icon?: string;
   /** Category of the most recent purchase. */
   category: Category;
   unit: Unit;
@@ -371,6 +451,7 @@ export function groceryItems(purchases: Purchase[]): GroceryItem[] {
     items.push({
       key,
       name: latest.itemName.trim().replace(/\s+/g, ' '),
+      imageKey: latest.imageKey,
       icon: latest.icon,
       category: latest.category,
       unit: latest.unit,
@@ -451,4 +532,206 @@ export function homeSummary(db: DB, today: string = todayKey()): HomeSummary {
       .slice(0, 3),
     priceMovers: biggestPriceMoves(moversThisMonth, 3),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Inventory — stock that purchases feed automatically
+// ---------------------------------------------------------------------------
+
+/** Out-of-stock items first, then alphabetically. */
+export function sortInventory(items: Ingredient[]): Ingredient[] {
+  return [...items].sort((a, b) => {
+    const aOut = a.quantity <= 0 ? 0 : 1;
+    const bOut = b.quantity <= 0 ? 0 : 1;
+    if (aOut !== bOut) return aOut - bOut;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export function isOutOfStock(item: Ingredient): boolean {
+  return item.quantity <= 0;
+}
+
+/** The most recent purchase of an item, for "last bought / last price" lines. */
+export function lastPurchaseFor(purchases: Purchase[], itemKey: string): Purchase | undefined {
+  return purchases
+    .filter((purchase) => normalizeItemName(purchase.itemName) === itemKey)
+    .sort((a, b) => (isNewerPurchase(a, b) ? -1 : 1))[0];
+}
+
+export interface PurchaseStockChange {
+  key: string;
+  /** Patch for an existing inventory row… */
+  patch?: Partial<Ingredient>;
+  /** …or the row to create when the item is new to the pantry. */
+  create?: Omit<Ingredient, 'id' | 'createdAt' | 'updatedAt'>;
+}
+
+/**
+ * How a purchase changes the pantry. `direction` is +1 when the purchase is
+ * added (or edited into its new form) and −1 when it is removed (or edited
+ * away from its old form).
+ *
+ * Rules, kept deliberately simple and explainable:
+ *   - a brand-new item appears in the pantry with the bought amount;
+ *   - matching units add up (and subtract on removal, never below zero);
+ *   - when the units don't line up, a purchase re-bases the count in its own
+ *     unit instead of guessing a conversion.
+ */
+export function purchaseStockChange(
+  inventory: Ingredient[],
+  purchase: Purchase,
+  direction: 1 | -1
+): PurchaseStockChange | null {
+  const key = normalizeItemName(purchase.itemName);
+  const existing = inventory.find((item) => item.key === key);
+
+  if (!existing) {
+    if (direction < 0) return null;
+    return {
+      key,
+      create: {
+        name: purchase.itemName.trim().replace(/\s+/g, ' '),
+        key,
+        imageKey: purchase.imageKey,
+        icon: purchase.icon,
+        category: purchase.category,
+        quantity: purchase.amount,
+        unit: purchase.unit,
+      },
+    };
+  }
+
+  if (existing.unit !== purchase.unit) {
+    if (direction < 0) return null;
+    return {
+      key,
+      patch: {
+        quantity: purchase.amount,
+        unit: purchase.unit,
+        imageKey: purchase.imageKey ?? existing.imageKey,
+        icon: purchase.icon ?? existing.icon,
+        category: purchase.category,
+      },
+    };
+  }
+
+  const nextQuantity =
+    direction > 0
+      ? round2(existing.quantity + purchase.amount)
+      : Math.max(0, round2(existing.quantity - purchase.amount));
+
+  return direction > 0
+    ? {
+        key,
+        patch: {
+          quantity: nextQuantity,
+          imageKey: purchase.imageKey ?? existing.imageKey,
+          icon: purchase.icon ?? existing.icon,
+        },
+      }
+    : { key, patch: { quantity: nextQuantity } };
+}
+
+// ---------------------------------------------------------------------------
+// Meals
+// ---------------------------------------------------------------------------
+
+export interface MealIngredientStatus {
+  ingredient: MealIngredient;
+  inStock: boolean;
+  stockQuantity: number;
+  onShoppingList: boolean;
+}
+
+/** Whether each ingredient of a dish is currently in the pantry. */
+export function mealIngredientStatuses(
+  meal: Meal,
+  inventory: Ingredient[],
+  shopping: ShoppingItem[] = []
+): MealIngredientStatus[] {
+  return meal.ingredients.map((ingredient) => {
+    const stock = inventory.find((item) => item.key === ingredient.key);
+    const quantity = stock?.quantity ?? 0;
+    return {
+      ingredient,
+      inStock: quantity > 0,
+      stockQuantity: quantity,
+      onShoppingList: shopping.some((item) => item.key === ingredient.key && !item.done),
+    };
+  });
+}
+
+/** The ingredients a dish calls for that the pantry cannot cover. */
+export function missingIngredients(meal: Meal, inventory: Ingredient[], shopping: ShoppingItem[] = []): MealIngredient[] {
+  return mealIngredientStatuses(meal, inventory, shopping)
+    .filter((status) => !status.inStock)
+    .map((status) => status.ingredient);
+}
+
+// ---------------------------------------------------------------------------
+// Shopping list
+// ---------------------------------------------------------------------------
+
+export interface ShoppingSuggestion {
+  kind: 'inventory' | 'meal';
+  name: string;
+  key: string;
+  amount?: number;
+  unit?: Unit;
+  sourceLabel?: string;
+  imageKey?: string;
+  icon?: string;
+}
+
+/**
+ * What could go on the shopping list: pantry items that have run out, plus
+ * ingredients missing for any saved dish. Anything already on the list (and
+ * not yet ticked off) is left out.
+ */
+export function shoppingSuggestions(
+  inventory: Ingredient[],
+  meals: Meal[],
+  shopping: ShoppingItem[]
+): ShoppingSuggestion[] {
+  const open = new Set(shopping.filter((item) => !item.done).map((item) => item.key));
+  const suggestions: ShoppingSuggestion[] = [];
+
+  for (const item of sortInventory(inventory)) {
+    if (!isOutOfStock(item) || open.has(item.key)) continue;
+    suggestions.push({
+      kind: 'inventory',
+      name: item.name,
+      key: item.key,
+      unit: item.unit,
+      imageKey: item.imageKey,
+      icon: item.icon,
+    });
+  }
+
+  for (const meal of meals) {
+    for (const ingredient of meal.ingredients) {
+      if (open.has(ingredient.key)) continue;
+      if (suggestions.some((suggestion) => suggestion.key === ingredient.key)) continue;
+      const stock = inventory.find((item) => item.key === ingredient.key);
+      if ((stock?.quantity ?? 0) > 0) continue;
+      suggestions.push({
+        kind: 'meal',
+        name: ingredient.name,
+        key: ingredient.key,
+        amount: ingredient.amount,
+        unit: ingredient.unit,
+        sourceLabel: meal.name,
+        imageKey: stock?.imageKey,
+        icon: stock?.icon,
+      });
+    }
+  }
+
+  return suggestions;
+}
+
+export function shoppingCounts(items: ShoppingItem[]): { open: number; done: number } {
+  const done = items.filter((item) => item.done).length;
+  return { open: items.length - done, done };
 }

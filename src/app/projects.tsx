@@ -84,7 +84,7 @@ export default function ProjectsScreen() {
 
       {visibleProjects.length === 0 ? (
         <EmptyState
-          emoji="📊"
+          icon="projects"
           message={
             db.projects.length === 0
               ? 'No projects yet — add your first one.'

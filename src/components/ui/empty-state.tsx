@@ -2,23 +2,29 @@ import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { Icon, type IconName } from '@/components/ui/icon';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
-/** Every empty list says something friendly instead of showing nothing (PRD §2.3). */
+/** Every empty list says something friendly instead of showing nothing. */
 export function EmptyState({
-  emoji,
+  icon = 'leaf',
   message,
   hint,
   action,
 }: {
-  emoji?: string;
+  icon?: IconName;
   message: string;
   hint?: string;
   action?: ReactNode;
 }) {
+  const theme = useTheme();
+
   return (
     <View testID="empty-state" style={styles.wrap}>
-      {emoji ? <ThemedText style={styles.emoji}>{emoji}</ThemedText> : null}
+      <View style={[styles.badge, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}>
+        <Icon name={icon} size={22} color={theme.textSecondary} />
+      </View>
       <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
         {message}
       </ThemedText>
@@ -39,9 +45,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.five,
     paddingHorizontal: Spacing.three,
   },
-  emoji: {
-    fontSize: 32,
-    lineHeight: 40,
+  badge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   center: {
     textAlign: 'center',

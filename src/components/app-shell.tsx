@@ -6,19 +6,24 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BackupModal } from '@/components/domain/backup-modal';
 import { Button } from '@/components/ui/button';
-import { Spacing } from '@/constants/theme';
+import { Icon, type IconName } from '@/components/ui/icon';
+import { ScreenTransition } from '@/components/ui/screen-transition';
+import { Radius, Spacing } from '@/constants/theme';
+import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 import { useWindowWidth } from '@/hooks/use-window-width';
 
 /** Windows narrower than this switch to the phone-style bottom bar (PRD §2.1). */
 export const WIDE_LAYOUT_MIN_WIDTH = 1000;
 
-export const NAV_ITEMS: { id: string; href: Href; label: string; emoji: string }[] = [
-  { id: 'home', href: '/', label: 'Home', emoji: '🏠' },
-  { id: 'todo', href: '/todo', label: 'To-do', emoji: '✅' },
-  { id: 'projects', href: '/projects', label: 'Projects', emoji: '📊' },
-  { id: 'spending', href: '/spending', label: 'Spending', emoji: '💰' },
-  { id: 'grocery', href: '/grocery', label: 'Grocery', emoji: '🛒' },
+export const NAV_ITEMS: { id: string; href: Href; label: string; icon: IconName }[] = [
+  { id: 'home', href: '/', label: 'Home', icon: 'home' },
+  { id: 'todo', href: '/todo', label: 'To-do', icon: 'todo' },
+  { id: 'meals', href: '/meals', label: 'Meals', icon: 'meals' },
+  { id: 'inventory', href: '/inventory', label: 'Inventory', icon: 'inventory' },
+  { id: 'projects', href: '/projects', label: 'Projects', icon: 'projects' },
+  { id: 'spending', href: '/spending', label: 'Spending', icon: 'spending' },
+  { id: 'grocery', href: '/grocery', label: 'Grocery', icon: 'grocery' },
 ];
 
 export function isWideLayout(width: number): boolean {
@@ -32,11 +37,12 @@ export function isNavItemActive(pathname: string, href: string): boolean {
 
 /**
  * The app frame: navigation (left sidebar on wide windows, bottom bar on
- * narrow ones) plus the scrollable content area that every screen renders into.
+ * narrow ones) plus the scrollable content area every screen renders into.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const width = useWindowWidth();
   const wide = isWideLayout(width);
+  const pathname = usePathname();
   const [backupVisible, setBackupVisible] = useState(false);
 
   return (
@@ -47,14 +53,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled">
-          <View style={styles.content}>{children}</View>
+          {/* Keyed by route, so every navigation fades in the same way. */}
+          <ScreenTransition key={pathname}>
+            <View style={styles.content}>{children}</View>
+          </ScreenTransition>
         </ScrollView>
       </View>
       {wide ? null : <BottomBar onOpenBackup={() => setBackupVisible(true)} />}
 
-      {backupVisible ? (
-        <BackupModal visible onClose={() => setBackupVisible(false)} />
-      ) : null}
+      {backupVisible ? <BackupModal visible onClose={() => setBackupVisible(false)} /> : null}
     </ThemedView>
   );
 }
@@ -67,17 +74,21 @@ function Sidebar({ onOpenBackup }: { onOpenBackup: () => void }) {
   return (
     <ThemedView
       testID="app-shell-sidebar"
-      type="backgroundElement"
+      type="surfaceMuted"
       style={[styles.sidebar, { borderRightColor: theme.border }]}>
-      <ThemedText type="heading" style={styles.brand}>
-        DlaiLog
-      </ThemedText>
+      <View style={styles.brandRow}>
+        <View style={[styles.brandMark, { borderColor: theme.borderStrong }]}>
+          <Icon name="leaf" size={16} color={theme.primary} />
+        </View>
+        <ThemedText type="heading">DlaiLog</ThemedText>
+      </View>
+
       <View style={styles.navList}>
         {NAV_ITEMS.map((item) => (
           <NavButton
             key={item.id}
             id={item.id}
-            emoji={item.emoji}
+            icon={item.icon}
             label={item.label}
             layout="sidebar"
             active={isNavItemActive(pathname, item.href as string)}
@@ -85,6 +96,7 @@ function Sidebar({ onOpenBackup }: { onOpenBackup: () => void }) {
           />
         ))}
       </View>
+
       <View style={styles.spacer} />
       <BackupButton compact={false} onPress={onOpenBackup} />
       <ThemedText type="caption" themeColor="textTertiary">
@@ -102,13 +114,13 @@ function BottomBar({ onOpenBackup }: { onOpenBackup: () => void }) {
   return (
     <ThemedView
       testID="app-shell-bottom-bar"
-      type="backgroundElement"
+      type="surfaceMuted"
       style={[styles.bottomBar, { borderTopColor: theme.border }]}>
       {NAV_ITEMS.map((item) => (
         <NavButton
           key={item.id}
           id={item.id}
-          emoji={item.emoji}
+          icon={item.icon}
           label={item.label}
           layout="bottom"
           active={isNavItemActive(pathname, item.href as string)}
@@ -122,20 +134,21 @@ function BottomBar({ onOpenBackup }: { onOpenBackup: () => void }) {
 
 function NavButton({
   id,
-  emoji,
+  icon,
   label,
   active,
   layout,
   onPress,
 }: {
   id: string;
-  emoji: string;
+  icon: IconName;
   label: string;
   active: boolean;
   layout: 'sidebar' | 'bottom';
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
 
   return (
     <Pressable
@@ -143,15 +156,18 @@ function NavButton({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
+      {...hoverProps}
       style={({ pressed }) => [
         layout === 'sidebar' ? styles.navItemSidebar : styles.navItemBottom,
         active && { backgroundColor: theme.backgroundSelected },
+        hovered && !active && { backgroundColor: theme.hover },
         pressed && styles.pressed,
       ]}>
-      <ThemedText type={layout === 'sidebar' ? 'default' : 'small'}>{emoji}</ThemedText>
+      <Icon name={icon} size={layout === 'sidebar' ? 18 : 20} color={active ? theme.text : theme.textSecondary} />
       <ThemedText
         type={layout === 'sidebar' ? 'small' : 'caption'}
         themeColor={active ? 'text' : 'textSecondary'}
+        numberOfLines={1}
         style={active ? styles.navLabelActive : undefined}>
         {label}
       </ThemedText>
@@ -163,8 +179,9 @@ function BackupButton({ compact, onPress }: { compact: boolean; onPress: () => v
   return (
     <Button
       testID="backup-button"
-      label={compact ? '💾' : '💾  Backup / Restore'}
-      variant="secondary"
+      icon="download"
+      label={compact ? '' : 'Backup / Restore'}
+      variant="ghost"
       onPress={onPress}
       style={compact ? styles.backupCompact : undefined}
     />
@@ -195,34 +212,46 @@ const styles = StyleSheet.create({
   content: {
     width: '100%',
     maxWidth: 1100,
-    gap: Spacing.three,
   },
   sidebar: {
-    width: 240,
+    width: 236,
     padding: Spacing.three,
     gap: Spacing.three,
     borderRightWidth: 1,
+    borderStyle: 'dashed',
   },
-  brand: {
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
     paddingHorizontal: Spacing.two,
-    paddingTop: Spacing.two,
+    paddingTop: Spacing.one,
+  },
+  brandMark: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.small,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navList: {
-    gap: Spacing.one,
+    gap: Spacing.half,
   },
   navItemSidebar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.two + 2,
     paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.two + 2,
+    borderRadius: Radius.medium,
   },
   navItemBottom: {
     flex: 1,
     alignItems: 'center',
     gap: Spacing.half,
-    paddingVertical: Spacing.two,
+    paddingVertical: Spacing.one + 2,
+    borderRadius: Radius.small,
   },
   navLabelActive: {
     fontWeight: 700,
@@ -233,9 +262,10 @@ const styles = StyleSheet.create({
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.two,
+    paddingHorizontal: Spacing.one,
     paddingVertical: Spacing.one,
     borderTopWidth: 1,
+    borderStyle: 'dashed',
   },
   backupCompact: {
     paddingHorizontal: Spacing.two,

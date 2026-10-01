@@ -1,48 +1,87 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * The DlaiLog design system.
+ *
+ * Two palettes, one mood: earthy, calm, low-contrast surfaces with a muted
+ * sage-and-terracotta accent pair. Light mode is built from the client's
+ * palette — cream #FBF3D5, pale sage #D6DAC8, muted sage-blue #9CAFAA and
+ * terracotta rose #D6A99D — on clean white cards with dark, warm text.
+ * Dark mode mirrors it: deep green-charcoal surfaces with the same accents
+ * lifted just enough to read.
+ *
+ * Conventions used across the app:
+ *   - Cards use dashed borders (`theme.border`), inputs and buttons use solid
+ *     ones, so the two line styles read as two different kinds of edge.
+ *   - `primary` fills are dark enough for `primaryText` to sit on them.
  */
 
 import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-    /** DlaiLog additions — see PRD §2.3 */
-    border: '#D8DBE0',
-    textTertiary: '#8A8F98',
-    /** Filled buttons, links, chart accents */
-    primary: '#1A73E8',
-    primaryText: '#FFFFFF',
-    /** Strong red for destructive buttons */
-    danger: '#D93025',
-    /** Red used as text (overdue, price went up) */
-    dangerText: '#C5221F',
-    successText: '#137333',
-    condiment: '#B45309',
-    grocery: '#137333',
-    misc: '#1D4ED8',
+    // Text
+    text: '#33382F',
+    textSecondary: '#5E6A5F',
+    textTertiary: '#8A9384',
+
+    // Surfaces
+    background: '#FBF3D5', // cream
+    backgroundElement: '#FFFDF6', // clean white cards
+    backgroundSelected: '#EFE7C9',
+    surfaceMuted: '#D6DAC8', // pale sage
+
+    // Lines & hover
+    border: '#C4BFA4', // warm grey-sage, used for dashed card edges
+    borderStrong: '#9CAFAA', // muted sage, used for solid edges
+    hover: '#F3EBD4',
+
+    // Actions
+    primary: '#5C7268', // deep muted sage — carries white text
+    primaryText: '#FBF3D5',
+    accent: '#B5735F', // terracotta rose
+    accentText: '#FBF3D5',
+    danger: '#A8442F',
+    dangerText: '#9C3F2B',
+    successText: '#4F7A5A',
+
+    // Categories (PRD §2.3): condiment amber-clay, grocery sage, misc blue-grey
+    condiment: '#A8734A',
+    grocery: '#4F7A5A',
+    misc: '#5B7288',
+
+    shadow: 'rgba(51, 56, 47, 0.14)',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-    border: '#33363B',
-    textTertiary: '#7C828B',
-    primary: '#1A73E8',
-    primaryText: '#FFFFFF',
-    danger: '#F04438',
-    dangerText: '#F87171',
-    successText: '#4ADE80',
-    condiment: '#FBBF24',
-    grocery: '#4ADE80',
-    misc: '#60A5FA',
+    // Text
+    text: '#EFEAD8',
+    textSecondary: '#B4B8A8',
+    textTertiary: '#8A8F80',
+
+    // Surfaces
+    background: '#1F2220', // deep green-charcoal
+    backgroundElement: '#282C29',
+    backgroundSelected: '#333834',
+    surfaceMuted: '#2E332F',
+
+    // Lines & hover
+    border: '#3E443F',
+    borderStrong: '#55605A',
+    hover: '#2E332F',
+
+    // Actions
+    primary: '#93AEA4', // lifted sage — carries dark text
+    primaryText: '#1F2220',
+    accent: '#D6A99D',
+    accentText: '#1F2220',
+    danger: '#D4776A',
+    dangerText: '#E39A8E',
+    successText: '#9CC0A6',
+
+    // Categories
+    condiment: '#D8A97F',
+    grocery: '#9CC0A6',
+    misc: '#A3BACF',
+
+    shadow: 'rgba(0, 0, 0, 0.45)',
   },
 } as const;
 
@@ -83,5 +122,19 @@ export const Spacing = {
   six: 64,
 } as const;
 
+export const Radius = {
+  small: 6,
+  medium: 10,
+  large: 16,
+  pill: 999,
+} as const;
+
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+export const MaxContentWidth = 1100;
+
+/** Shared motion values, so every transition in the app feels like one system. */
+export const Motion = {
+  fast: 120,
+  normal: 220,
+  slow: 320,
+} as const;

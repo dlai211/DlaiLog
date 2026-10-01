@@ -10,7 +10,7 @@ import {
 import { emptyDB, type DB } from '@/store/types';
 
 const sampleDB: DB = {
-  version: 1,
+  ...emptyDB(),
   tasks: [
     { id: 't1', title: 'Buy paint', date: '2026-09-30', done: false, createdAt: '2026-09-30T08:00:00.000Z' },
   ],
@@ -45,7 +45,7 @@ describe('buildBackup / backupFilename / serializeBackup', () => {
   it('wraps the database with an identifying header', () => {
     const backup = buildBackup(sampleDB, '2026-09-30T12:00:00.000Z');
 
-    expect(backup).toMatchObject({ app: 'dlailog', version: 1, exportedAt: '2026-09-30T12:00:00.000Z' });
+    expect(backup).toMatchObject({ app: 'dlailog', version: 2, exportedAt: '2026-09-30T12:00:00.000Z' });
     expect(backup.data).toEqual(sampleDB);
   });
 

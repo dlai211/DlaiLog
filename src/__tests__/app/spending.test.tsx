@@ -136,7 +136,9 @@ describe('Spending screen', () => {
       expect(saved).toHaveLength(2);
       expect(saved[1]).toMatchObject({
         itemName: 'Soy sauce',
-        icon: '🍜',
+        // The picture is remembered from the item's history (guessed from its
+        // name for version-1 rows, which only carried an emoji).
+        imageKey: 'soy-sauce',
         category: 'condiment',
         amount: 2,
         unit: 'L',
@@ -154,7 +156,7 @@ describe('Spending screen', () => {
     fireEvent.press(screen.getByTestId('purchase-save'));
 
     expect(screen.getByText('Item name is required')).toBeOnTheScreen();
-    expect(screen.getByText('Pick an icon')).toBeOnTheScreen();
+    expect(screen.getByText('Pick a picture')).toBeOnTheScreen();
     expect(screen.getByText('Enter an amount above 0')).toBeOnTheScreen();
     expect(screen.getByText('Enter a price above 0')).toBeOnTheScreen();
     expect(screen.getByText('Store is required')).toBeOnTheScreen();

@@ -137,7 +137,7 @@ export default function HomeScreen() {
           <WeekStrip anchor={today} tasks={db.tasks} onSelectDay={goToDay} testID="home-week-strip" />
 
           {dayIsEmpty ? (
-            <EmptyState emoji="🌤" message="Nothing planned today — enjoy it." />
+            <EmptyState icon="sun" message="Nothing planned today — enjoy it." />
           ) : (
             <>
               {overdue.length > 0 ? (
@@ -194,7 +194,7 @@ export default function HomeScreen() {
           </View>
 
           {notes.length === 0 ? (
-            <EmptyState emoji="📝" message="No notes yet — jot something down." />
+            <EmptyState icon="note" message="No notes yet — jot something down." />
           ) : (
             <View style={styles.notes}>
               {notes.map((note) => (

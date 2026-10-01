@@ -13,24 +13,64 @@ function isServerPrerender(): boolean {
   return Platform.OS === 'web' && typeof window === 'undefined';
 }
 
-/** Shape check for anything claiming to be a DlaiLog database. */
-export function isValidDB(value: unknown): value is DB {
-  if (typeof value !== 'object' || value === null) return false;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/**
+ * Brings any stored database forward to the current version.
+ *
+ * Version 1 held four lists (tasks, notes, projects, purchases); version 2
+ * added inventory, meals and shopping. Anything that is not recognisably a
+ * DlaiLog database — at any version — is rejected, so a stray JSON blob can
+ * never be mistaken for real data.
+ */
+export function migrateDB(value: unknown): DB | null {
+  if (!isRecord(value)) return null;
+
   const candidate = value as Partial<DB>;
-  if (candidate.version !== DB_VERSION) return false;
-  return (
+  const version: unknown = (value as { version?: unknown }).version;
+  const hasCore =
     Array.isArray(candidate.tasks) &&
     Array.isArray(candidate.notes) &&
     Array.isArray(candidate.projects) &&
-    Array.isArray(candidate.purchases)
-  );
+    Array.isArray(candidate.purchases);
+
+  if (!hasCore) return null;
+
+  if (version === 1) {
+    return {
+      ...(candidate as unknown as Omit<DB, 'version' | 'inventory' | 'meals' | 'shopping'>),
+      version: DB_VERSION,
+      inventory: [],
+      meals: [],
+      shopping: [],
+    } as DB;
+  }
+
+  if (version === DB_VERSION) {
+    if (
+      Array.isArray(candidate.inventory) &&
+      Array.isArray(candidate.meals) &&
+      Array.isArray(candidate.shopping)
+    ) {
+      return candidate as DB;
+    }
+    return null;
+  }
+
+  return null;
+}
+
+/** Shape check for anything claiming to be a current DlaiLog database. */
+export function isValidDB(value: unknown): value is DB {
+  return migrateDB(value) !== null;
 }
 
 export function parseDB(raw: string | null): DB | null {
   if (!raw) return null;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    return isValidDB(parsed) ? parsed : null;
+    return migrateDB(JSON.parse(raw) as unknown);
   } catch {
     return null;
   }

@@ -11,15 +11,22 @@ import {
 import { useToast } from '@/components/ui/toast';
 import { newId } from '@/lib/id';
 import { loadDB, saveDB } from '@/store/storage';
+import { purchaseStockChange, type PurchaseStockChange } from '@/store/selectors';
 import {
   emptyDB,
   type DB,
+  type Ingredient,
+  type Meal,
+  type NewIngredient,
+  type NewMeal,
   type NewProject,
   type NewPurchase,
+  type NewShoppingItem,
   type NewTask,
   type Note,
   type Project,
   type Purchase,
+  type ShoppingItem,
   type Task,
 } from '@/store/types';
 
@@ -27,27 +34,77 @@ export interface DataContextValue {
   /** False until the saved data has been read — screens wait for it. */
   ready: boolean;
   db: DB;
+
   addTask(input: NewTask): Task;
   updateTask(id: string, patch: Partial<Omit<Task, 'id'>>): void;
   deleteTask(id: string): void;
+
   addNote(text: string): Note;
   deleteNote(id: string): void;
+
   addProject(input: NewProject): Project;
   updateProject(id: string, patch: Partial<Omit<Project, 'id'>>): void;
   deleteProject(id: string): void;
+
   addPurchase(input: NewPurchase): Purchase;
   updatePurchase(id: string, patch: Partial<Omit<Purchase, 'id'>>): void;
   deletePurchase(id: string): void;
+
+  addIngredient(input: NewIngredient): Ingredient;
+  updateIngredient(id: string, patch: Partial<Omit<Ingredient, 'id'>>): void;
+  deleteIngredient(id: string): void;
+  /** Quick "+" / "−" stock adjustments; never goes below zero. */
+  adjustIngredientQuantity(id: string, delta: number): void;
+
+  addMeal(input: NewMeal): Meal;
+  updateMeal(id: string, patch: Partial<Omit<Meal, 'id'>>): void;
+  deleteMeal(id: string): void;
+
+  addShoppingItem(input: NewShoppingItem): ShoppingItem;
+  updateShoppingItem(id: string, patch: Partial<Omit<ShoppingItem, 'id'>>): void;
+  deleteShoppingItem(id: string): void;
+  toggleShoppingItem(id: string): void;
+  clearDoneShopping(): void;
+
   /** Replaces everything — used only by Backup/Restore. */
   replaceAll(next: DB): void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
 
+function nowISO(): string {
+  return new Date().toISOString();
+}
+
 /**
- * Holds the whole database in memory and saves it after every change
- * (PRD §7.1). Loading finishes before the first save can run, so an empty
- * store can never overwrite real data.
+ * Applies a purchase's effect on the pantry (create the item, or move its
+ * quantity) to a database snapshot.
+ */
+function withStockChange(current: DB, change: PurchaseStockChange | null): DB {
+  if (!change) return current;
+
+  if (change.create) {
+    const stamp = nowISO();
+    const item: Ingredient = { ...change.create, id: newId(), createdAt: stamp, updatedAt: stamp };
+    return { ...current, inventory: [...current.inventory, item] };
+  }
+
+  if (change.patch) {
+    return {
+      ...current,
+      inventory: current.inventory.map((item) =>
+        item.key === change.key ? { ...item, ...change.patch, updatedAt: nowISO() } : item
+      ),
+    };
+  }
+
+  return current;
+}
+
+/**
+ * Holds the whole database in memory and saves it after every change.
+ * Loading finishes before the first save can run, so an empty store can never
+ * overwrite real data.
  */
 export function DataProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>(() => emptyDB());
@@ -77,9 +134,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setDb((current) => updater(current));
   }, []);
 
+  // --- Tasks ---------------------------------------------------------------
+
   const addTask = useCallback(
     (input: NewTask) => {
-      const task: Task = { ...input, id: newId(), createdAt: new Date().toISOString() };
+      const task: Task = { ...input, id: newId(), createdAt: nowISO() };
       mutate((current) => ({ ...current, tasks: [...current.tasks, task] }));
       return task;
     },
@@ -103,9 +162,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
+  // --- Notes ---------------------------------------------------------------
+
   const addNote = useCallback(
     (text: string) => {
-      const note: Note = { id: newId(), text, createdAt: new Date().toISOString() };
+      const note: Note = { id: newId(), text, createdAt: nowISO() };
       mutate((current) => ({ ...current, notes: [...current.notes, note] }));
       return note;
     },
@@ -119,10 +180,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
+  // --- Projects ------------------------------------------------------------
+
   const addProject = useCallback(
     (input: NewProject) => {
-      const now = new Date().toISOString();
-      const project: Project = { ...input, id: newId(), createdAt: now, updatedAt: now };
+      const stamp = nowISO();
+      const project: Project = { ...input, id: newId(), createdAt: stamp, updatedAt: stamp };
       mutate((current) => ({ ...current, projects: [...current.projects, project] }));
       return project;
     },
@@ -134,9 +197,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       mutate((current) => ({
         ...current,
         projects: current.projects.map((project) =>
-          project.id === id
-            ? { ...project, ...patch, updatedAt: new Date().toISOString() }
-            : project
+          project.id === id ? { ...project, ...patch, updatedAt: nowISO() } : project
         ),
       }));
     },
@@ -153,10 +214,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
+  // --- Purchases (these also move the pantry) ------------------------------
+
   const addPurchase = useCallback(
     (input: NewPurchase) => {
-      const purchase: Purchase = { ...input, id: newId(), createdAt: new Date().toISOString() };
-      mutate((current) => ({ ...current, purchases: [...current.purchases, purchase] }));
+      const purchase: Purchase = { ...input, id: newId(), createdAt: nowISO() };
+      mutate((current) => {
+        const withPurchase: DB = { ...current, purchases: [...current.purchases, purchase] };
+        return withStockChange(withPurchase, purchaseStockChange(current.inventory, purchase, 1));
+      });
       return purchase;
     },
     [mutate]
@@ -164,25 +230,174 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updatePurchase = useCallback(
     (id: string, patch: Partial<Omit<Purchase, 'id'>>) => {
-      mutate((current) => ({
-        ...current,
-        purchases: current.purchases.map((purchase) =>
-          purchase.id === id ? { ...purchase, ...patch } : purchase
-        ),
-      }));
+      mutate((current) => {
+        const existing = current.purchases.find((purchase) => purchase.id === id);
+        if (!existing) return current;
+
+        const updated: Purchase = { ...existing, ...patch };
+        let next: DB = {
+          ...current,
+          purchases: current.purchases.map((purchase) => (purchase.id === id ? updated : purchase)),
+        };
+
+        // Undo the old purchase's contribution, then apply the new one.
+        next = withStockChange(next, purchaseStockChange(current.inventory, existing, -1));
+        return withStockChange(next, purchaseStockChange(next.inventory, updated, 1));
+      });
     },
     [mutate]
   );
 
   const deletePurchase = useCallback(
     (id: string) => {
+      mutate((current) => {
+        const purchase = current.purchases.find((entry) => entry.id === id);
+        if (!purchase) return current;
+
+        const next: DB = {
+          ...current,
+          purchases: current.purchases.filter((entry) => entry.id !== id),
+        };
+        return withStockChange(next, purchaseStockChange(current.inventory, purchase, -1));
+      });
+    },
+    [mutate]
+  );
+
+  // --- Inventory -----------------------------------------------------------
+
+  const addIngredient = useCallback(
+    (input: NewIngredient) => {
+      const stamp = nowISO();
+      const ingredient: Ingredient = { ...input, id: newId(), createdAt: stamp, updatedAt: stamp };
+      mutate((current) => ({ ...current, inventory: [...current.inventory, ingredient] }));
+      return ingredient;
+    },
+    [mutate]
+  );
+
+  const updateIngredient = useCallback(
+    (id: string, patch: Partial<Omit<Ingredient, 'id'>>) => {
       mutate((current) => ({
         ...current,
-        purchases: current.purchases.filter((purchase) => purchase.id !== id),
+        inventory: current.inventory.map((item) =>
+          item.id === id ? { ...item, ...patch, updatedAt: nowISO() } : item
+        ),
       }));
     },
     [mutate]
   );
+
+  const deleteIngredient = useCallback(
+    (id: string) => {
+      mutate((current) => ({
+        ...current,
+        inventory: current.inventory.filter((item) => item.id !== id),
+      }));
+    },
+    [mutate]
+  );
+
+  const adjustIngredientQuantity = useCallback(
+    (id: string, delta: number) => {
+      mutate((current) => ({
+        ...current,
+        inventory: current.inventory.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                quantity: Math.max(0, Math.round((item.quantity + delta) * 100) / 100),
+                updatedAt: nowISO(),
+              }
+            : item
+        ),
+      }));
+    },
+    [mutate]
+  );
+
+  // --- Meals ---------------------------------------------------------------
+
+  const addMeal = useCallback(
+    (input: NewMeal) => {
+      const stamp = nowISO();
+      const meal: Meal = { ...input, id: newId(), createdAt: stamp, updatedAt: stamp };
+      mutate((current) => ({ ...current, meals: [...current.meals, meal] }));
+      return meal;
+    },
+    [mutate]
+  );
+
+  const updateMeal = useCallback(
+    (id: string, patch: Partial<Omit<Meal, 'id'>>) => {
+      mutate((current) => ({
+        ...current,
+        meals: current.meals.map((meal) =>
+          meal.id === id ? { ...meal, ...patch, updatedAt: nowISO() } : meal
+        ),
+      }));
+    },
+    [mutate]
+  );
+
+  const deleteMeal = useCallback(
+    (id: string) => {
+      mutate((current) => ({ ...current, meals: current.meals.filter((meal) => meal.id !== id) }));
+    },
+    [mutate]
+  );
+
+  // --- Shopping list -------------------------------------------------------
+
+  const addShoppingItem = useCallback(
+    (input: NewShoppingItem) => {
+      const item: ShoppingItem = { ...input, id: newId(), createdAt: nowISO() };
+      mutate((current) => {
+        // Never queue the same item twice while it is still open.
+        const alreadyOpen = current.shopping.some((entry) => entry.key === item.key && !entry.done);
+        if (alreadyOpen) return current;
+        return { ...current, shopping: [...current.shopping, item] };
+      });
+      return item;
+    },
+    [mutate]
+  );
+
+  const updateShoppingItem = useCallback(
+    (id: string, patch: Partial<Omit<ShoppingItem, 'id'>>) => {
+      mutate((current) => ({
+        ...current,
+        shopping: current.shopping.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+      }));
+    },
+    [mutate]
+  );
+
+  const deleteShoppingItem = useCallback(
+    (id: string) => {
+      mutate((current) => ({
+        ...current,
+        shopping: current.shopping.filter((item) => item.id !== id),
+      }));
+    },
+    [mutate]
+  );
+
+  const toggleShoppingItem = useCallback(
+    (id: string) => {
+      mutate((current) => ({
+        ...current,
+        shopping: current.shopping.map((item) =>
+          item.id === id ? { ...item, done: !item.done } : item
+        ),
+      }));
+    },
+    [mutate]
+  );
+
+  const clearDoneShopping = useCallback(() => {
+    mutate((current) => ({ ...current, shopping: current.shopping.filter((item) => !item.done) }));
+  }, [mutate]);
 
   const replaceAll = useCallback(
     (next: DB) => {
@@ -206,6 +421,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addPurchase,
       updatePurchase,
       deletePurchase,
+      addIngredient,
+      updateIngredient,
+      deleteIngredient,
+      adjustIngredientQuantity,
+      addMeal,
+      updateMeal,
+      deleteMeal,
+      addShoppingItem,
+      updateShoppingItem,
+      deleteShoppingItem,
+      toggleShoppingItem,
+      clearDoneShopping,
       replaceAll,
     }),
     [
@@ -222,6 +449,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addPurchase,
       updatePurchase,
       deletePurchase,
+      addIngredient,
+      updateIngredient,
+      deleteIngredient,
+      adjustIngredientQuantity,
+      addMeal,
+      updateMeal,
+      deleteMeal,
+      addShoppingItem,
+      updateShoppingItem,
+      deleteShoppingItem,
+      toggleShoppingItem,
+      clearDoneShopping,
       replaceAll,
     ]
   );

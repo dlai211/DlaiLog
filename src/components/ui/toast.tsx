@@ -117,15 +117,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
     borderWidth: 1,
+    borderStyle: 'dashed',
     borderRadius: Spacing.two,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     maxWidth: 560,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    // `boxShadow` is the modern, cross-platform way to draw a shadow;
+    // the old shadow* props are deprecated (and noisy in the console).
+    boxShadow: '0 4px 16px rgba(47, 58, 56, 0.18)',
   },
   message: {
     flexShrink: 1,

@@ -169,7 +169,7 @@ export default function TodoScreen() {
 
           {dayIsEmpty ? (
             <EmptyState
-              emoji="🌤"
+              icon="sun"
               message="Nothing planned — enjoy it."
               hint="Use + New task to add something."
             />

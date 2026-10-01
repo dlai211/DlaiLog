@@ -2,7 +2,10 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
+import { Radius, Spacing } from '@/constants/theme';
+import { useHover } from '@/hooks/use-hover';
+import { useTheme } from '@/hooks/use-theme';
 
 /** A section header that hides its content until opened — the To-do "Done" list. */
 export function CollapsibleSection({
@@ -18,7 +21,9 @@ export function CollapsibleSection({
   children: ReactNode;
   testID?: string;
 }) {
+  const theme = useTheme();
   const [open, setOpen] = useState(defaultOpen);
+  const { hovered, hoverProps } = useHover();
 
   return (
     <View style={styles.wrap}>
@@ -27,15 +32,16 @@ export function CollapsibleSection({
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((value) => !value)}
-        style={({ pressed }) => [styles.header, pressed && styles.pressed]}>
-        <ThemedText type="caption" themeColor="textTertiary">
-          {open ? '▾' : '▸'}
-        </ThemedText>
+        {...hoverProps}
+        style={[styles.header, hovered && { backgroundColor: theme.hover }, open && styles.headerOpen]}>
+        <Icon name={open ? 'chevron-down' : 'chevron-right'} size={14} color={theme.textTertiary} />
         <ThemedText type="smallBold" themeColor="textSecondary">
           {count === undefined ? title : `${title} (${count})`}
         </ThemedText>
       </Pressable>
-      {open ? <View style={styles.body}>{children}</View> : null}
+      {open ? (
+        <View style={[styles.body, { borderColor: theme.border }]}>{children}</View>
+      ) : null}
     </View>
   );
 }
@@ -48,13 +54,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.one + 2,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Radius.small,
   },
-  pressed: {
-    opacity: 0.7,
+  headerOpen: {
+    marginBottom: Spacing.one,
   },
   body: {
     gap: Spacing.two,
     paddingLeft: Spacing.three,
+    borderLeftWidth: 1,
+    borderStyle: 'dashed',
   },
 });
