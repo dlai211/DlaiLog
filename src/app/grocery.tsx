@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Spacing } from '@/constants/theme';
 import { CATEGORY_META, CATEGORY_ORDER } from '@/data/categories';
 import { IngredientImage } from '@/data/ingredient-images';
-import { useTheme } from '@/hooks/use-theme';
+import { useScreenAccent, useTheme } from '@/hooks/use-theme';
 import {
   formatAmountUnit,
   formatMoney,
@@ -22,8 +22,10 @@ import {
 import { useData } from '@/store/data-provider';
 import { categoryCounts, groceryItems, type GroceryItem } from '@/store/selectors';
 import type { Category } from '@/store/types';
+import { fluid } from '@/lib/fluid';
 
 export default function GroceryScreen() {
+  const accent = useScreenAccent('grocery');
   const { db } = useData();
   const theme = useTheme();
   const router = useRouter();
@@ -45,6 +47,7 @@ export default function GroceryScreen() {
     <>
       <PageHeader
         title="Grocery Tracker"
+        accent={accent}
         subtitle="Built automatically from your Spending entries — nothing to add here"
       />
 
@@ -232,7 +235,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   searchRow: {
-    maxWidth: 320,
+    maxWidth: fluid(320),
   },
   card: {
     borderWidth: 1,
@@ -253,7 +256,7 @@ const styles = StyleSheet.create({
   cardBody: {
     flex: 1,
     gap: Spacing.half,
-    minWidth: 140,
+    minWidth: fluid(140),
   },
   priceBlock: {
     alignItems: 'flex-end',
@@ -273,9 +276,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   historyDate: {
-    minWidth: 52,
+    minWidth: fluid(52),
   },
   historyStore: {
-    minWidth: 90,
+    minWidth: fluid(90),
   },
 });

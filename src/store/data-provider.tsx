@@ -8,12 +8,16 @@ import {
   type ReactNode,
 } from 'react';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { useToast } from '@/components/ui/toast';
 import { newId } from '@/lib/id';
+import { buildSampleDB } from '@/store/sample-data';
 import { loadDB, saveDB } from '@/store/storage';
 import { purchaseStockChange, type PurchaseStockChange } from '@/store/selectors';
 import {
   emptyDB,
+  isEmptyDB,
   type DB,
   type Ingredient,
   type Meal,
@@ -38,6 +42,11 @@ export interface DataContextValue {
   addTask(input: NewTask): Task;
   updateTask(id: string, patch: Partial<Omit<Task, 'id'>>): void;
   deleteTask(id: string): void;
+  /**
+   * Ticks one day's appearance of a task. A repeating task remembers the days
+   * it was done on; a one-off task just flips its single flag.
+   */
+  toggleTaskOn(id: string, date: string): void;
 
   addNote(text: string): Note;
   deleteNote(id: string): void;
@@ -68,6 +77,31 @@ export interface DataContextValue {
 
   /** Replaces everything — used only by Backup/Restore. */
   replaceAll(next: DB): void;
+  /** Replaces everything with the example dataset (Backup & Restore dialog). */
+  loadSampleData(): void;
+  /** Clears every record, and stops the example data coming back on reload. */
+  eraseAllData(): void;
+}
+
+/**
+ * The example dataset is written once, into a completely empty store, so the
+ * app opens with something to look at. Anything saved — including an
+ * intentionally emptied app — turns it off for good.
+ */
+export const NO_SEED_KEY = 'dlailog:no-seed';
+
+function seedingDisabledByBuild(): boolean {
+  return process.env.EXPO_PUBLIC_DLAILOG_NO_SEED === '1';
+}
+
+async function shouldSeed(loaded: DB): Promise<boolean> {
+  if (!isEmptyDB(loaded) || seedingDisabledByBuild()) return false;
+  try {
+    return (await AsyncStorage.getItem(NO_SEED_KEY)) !== '1';
+  } catch {
+    // Storage unavailable: an empty app is a fine place to start.
+    return true;
+  }
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -113,11 +147,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    loadDB().then((loaded) => {
-      if (cancelled) return;
-      setDb(loaded);
-      setReady(true);
-    });
+    loadDB()
+      .then(async (loaded) => ({
+        loaded,
+        seed: await shouldSeed(loaded),
+      }))
+      .then(({ loaded, seed }) => {
+        if (cancelled) return;
+        setDb(seed ? buildSampleDB() : loaded);
+        setReady(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -158,6 +197,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteTask = useCallback(
     (id: string) => {
       mutate((current) => ({ ...current, tasks: current.tasks.filter((task) => task.id !== id) }));
+    },
+    [mutate]
+  );
+
+  const toggleTaskOn = useCallback(
+    (id: string, date: string) => {
+      mutate((current) => ({
+        ...current,
+        tasks: current.tasks.map((task) => {
+          if (task.id !== id) return task;
+
+          if (!task.repeat) return { ...task, done: !task.done };
+
+          const doneDates = task.doneDates ?? [];
+          const next = doneDates.includes(date)
+            ? doneDates.filter((day) => day !== date)
+            : [...doneDates, date].sort();
+          return { ...task, doneDates: next };
+        }),
+      }));
     },
     [mutate]
   );
@@ -406,6 +465,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
+  const loadSampleData = useCallback(() => {
+    AsyncStorage.removeItem(NO_SEED_KEY).catch(() => {});
+    mutate(() => buildSampleDB());
+  }, [mutate]);
+
+  const eraseAllData = useCallback(() => {
+    AsyncStorage.setItem(NO_SEED_KEY, '1').catch(() => {});
+    mutate(() => emptyDB());
+  }, [mutate]);
+
   const value = useMemo<DataContextValue>(
     () => ({
       ready,
@@ -413,6 +482,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addTask,
       updateTask,
       deleteTask,
+      toggleTaskOn,
       addNote,
       deleteNote,
       addProject,
@@ -434,6 +504,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       toggleShoppingItem,
       clearDoneShopping,
       replaceAll,
+      loadSampleData,
+      eraseAllData,
     }),
     [
       ready,
@@ -441,6 +513,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addTask,
       updateTask,
       deleteTask,
+      toggleTaskOn,
       addNote,
       deleteNote,
       addProject,
@@ -462,6 +535,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       toggleShoppingItem,
       clearDoneShopping,
       replaceAll,
+      loadSampleData,
+      eraseAllData,
     ]
   );
 

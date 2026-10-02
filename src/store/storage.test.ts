@@ -104,11 +104,11 @@ describe('loadDB / saveDB', () => {
   });
 });
 
-describe('version 1 → 2 migration', () => {
+describe('version 1 → 3 migration', () => {
   it('brings an old database forward and adds the new lists', () => {
     const migrated = migrateDB(versionOneDatabase());
 
-    expect(migrated).toMatchObject({ version: 2, inventory: [], meals: [], shopping: [] });
+    expect(migrated).toMatchObject({ version: 3, inventory: [], meals: [], shopping: [] });
     expect(migrated?.tasks).toHaveLength(1);
     expect(migrated?.purchases[0]).toMatchObject({ itemName: 'Soy sauce', icon: '🍜' });
   });
@@ -118,7 +118,7 @@ describe('version 1 → 2 migration', () => {
 
     const db = await loadDB();
 
-    expect(db.version).toBe(2);
+    expect(db.version).toBe(3);
     expect(db.tasks).toHaveLength(1);
     expect(db.purchases).toHaveLength(1);
     expect(db.inventory).toEqual([]);

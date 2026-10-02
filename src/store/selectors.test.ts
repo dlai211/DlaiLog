@@ -1,7 +1,7 @@
 import {
   biggestPriceMoves,
   categoryCounts,
-  doneTasksForDay,
+  doneOccurrencesForDay,
   filterProjects,
   filterPurchases,
   findSimilarItemName,
@@ -11,6 +11,7 @@ import {
   homeSummary,
   ingredientNameSuggestions,
   isOutOfStock,
+  isTaskDoneOn,
   itemMemory,
   itemSuggestions,
   lastPurchaseFor,
@@ -20,7 +21,10 @@ import {
   monthSummary,
   monthTotal,
   normalizeItemName,
-  overdueTasks,
+  openOccurrenceCounts,
+  openOccurrencesByDay,
+  openOccurrencesForDay,
+  overdueOccurrences,
   projectDueLabel,
   purchaseStockChange,
   recentTileKeys,
@@ -30,8 +34,7 @@ import {
   sortProjects,
   storeSuggestions,
   storesInUse,
-  tasksForDay,
-  undoneTasksByDay,
+  taskOccursOn,
 } from '@/store/selectors';
 import {
   emptyDB,
@@ -154,7 +157,7 @@ describe('filterProjects', () => {
   });
 });
 
-describe('tasksForDay', () => {
+describe('openOccurrencesForDay', () => {
   it('splits timed and untimed open tasks, ignoring other days and finished ones', () => {
     const tasks = [
       makeTask({ id: 'late', time: '14:00' }),
@@ -164,10 +167,12 @@ describe('tasksForDay', () => {
       makeTask({ id: 'finished', done: true }),
     ];
 
-    const { timed, anytime } = tasksForDay(tasks, '2026-09-30');
+    const { timed, anytime } = openOccurrencesForDay(tasks, '2026-09-30');
 
-    expect(timed.map((task) => task.id)).toEqual(['early', 'late']);
-    expect(anytime.map((task) => task.id)).toEqual(['anytime']);
+    expect(timed.map((occurrence) => occurrence.task.id)).toEqual(['early', 'late']);
+    expect(anytime.map((occurrence) => occurrence.task.id)).toEqual(['anytime']);
+    expect(timed[0].date).toBe('2026-09-30');
+    expect(timed[0].done).toBe(false);
   });
 
   it('orders untimed tasks by creation time', () => {
@@ -176,14 +181,13 @@ describe('tasksForDay', () => {
       makeTask({ id: 'earlier', createdAt: '2026-09-30T07:00:00.000Z' }),
     ];
 
-    expect(tasksForDay(tasks, '2026-09-30').anytime.map((task) => task.id)).toEqual([
-      'earlier',
-      'later',
-    ]);
+    expect(
+      openOccurrencesForDay(tasks, '2026-09-30').anytime.map((occurrence) => occurrence.task.id)
+    ).toEqual(['earlier', 'later']);
   });
 });
 
-describe('doneTasksForDay', () => {
+describe('doneOccurrencesForDay', () => {
   it('returns only the finished tasks of that day', () => {
     const tasks = [
       makeTask({ id: 'done-here', done: true }),
@@ -191,11 +195,13 @@ describe('doneTasksForDay', () => {
       makeTask({ id: 'done-elsewhere', done: true, date: '2026-10-01' }),
     ];
 
-    expect(doneTasksForDay(tasks, '2026-09-30').map((task) => task.id)).toEqual(['done-here']);
+    expect(
+      doneOccurrencesForDay(tasks, '2026-09-30').map((occurrence) => occurrence.task.id)
+    ).toEqual(['done-here']);
   });
 });
 
-describe('overdueTasks', () => {
+describe('overdueOccurrences', () => {
   it('lists unfinished tasks from earlier days, oldest first', () => {
     const tasks = [
       makeTask({ id: 'yesterday', date: '2026-09-29' }),
@@ -204,14 +210,25 @@ describe('overdueTasks', () => {
       makeTask({ id: 'old-but-done', date: '2026-09-20', done: true }),
     ];
 
-    expect(overdueTasks(tasks, '2026-09-30').map((task) => task.id)).toEqual([
+    expect(overdueOccurrences(tasks, '2026-09-30').map((occurrence) => occurrence.task.id)).toEqual([
       'last-week',
       'yesterday',
     ]);
   });
+
+  it('leaves repeating tasks out — a missed Tuesday is not a debt', () => {
+    const tasks = [
+      makeTask({ id: 'repeat', date: '2026-09-01', repeat: { days: [2] } }),
+      makeTask({ id: 'one-off', date: '2026-09-29' }),
+    ];
+
+    expect(overdueOccurrences(tasks, '2026-09-30').map((occurrence) => occurrence.task.id)).toEqual([
+      'one-off',
+    ]);
+  });
 });
 
-describe('undoneTasksByDay', () => {
+describe('openOccurrencesByDay', () => {
   it('groups the open tasks of a month by day, timed first', () => {
     const tasks = [
       makeTask({ id: 'untimed', date: '2026-09-30' }),
@@ -221,11 +238,85 @@ describe('undoneTasksByDay', () => {
       makeTask({ id: 'finished', date: '2026-09-30', done: true }),
     ];
 
-    const byDay = undoneTasksByDay(tasks, '2026-09');
+    const byDay = openOccurrencesByDay(tasks, '2026-09');
 
     expect(Object.keys(byDay).sort()).toEqual(['2026-09-15', '2026-09-30']);
-    expect(byDay['2026-09-30'].map((task) => task.id)).toEqual(['timed', 'untimed']);
-    expect(byDay['2026-09-15'].map((task) => task.id)).toEqual(['mid-month']);
+    expect(byDay['2026-09-30'].map((occurrence) => occurrence.task.id)).toEqual(['timed', 'untimed']);
+    expect(byDay['2026-09-15'].map((occurrence) => occurrence.task.id)).toEqual(['mid-month']);
+  });
+});
+
+describe('tasks that repeat', () => {
+  // Every Tuesday and Thursday, starting Tue 6 Oct 2026, until the end of
+  // October — the worked example from the requirements.
+  const tueThu = makeTask({
+    id: 'tue-thu',
+    date: '2026-10-06',
+    time: '12:00',
+    endTime: '14:00',
+    repeat: { days: [2, 4], until: '2026-10-31' },
+  });
+
+  it('lands on every matching weekday of its series', () => {
+    expect(taskOccursOn(tueThu, '2026-10-06')).toBe(true); // Tuesday
+    expect(taskOccursOn(tueThu, '2026-10-08')).toBe(true); // Thursday
+    expect(taskOccursOn(tueThu, '2026-10-07')).toBe(false); // Wednesday
+  });
+
+  it('does not reach back before it starts, or past its end date', () => {
+    expect(taskOccursOn(tueThu, '2026-09-29')).toBe(false); // Tuesday, before the start
+    expect(taskOccursOn(tueThu, '2026-11-03')).toBe(false); // Tuesday, after the end
+  });
+
+  it('comes back every day when all seven days are chosen', () => {
+    const daily = makeTask({ id: 'daily', date: '2026-09-28', repeat: { days: [0, 1, 2, 3, 4, 5, 6] } });
+    expect(taskOccursOn(daily, '2026-09-28')).toBe(true);
+    expect(taskOccursOn(daily, '2026-11-30')).toBe(true);
+  });
+
+  it('shows up on each of its days in the month view', () => {
+    const byDay = openOccurrencesByDay([tueThu], '2026-10');
+    expect(Object.keys(byDay).sort()).toEqual([
+      '2026-10-06',
+      '2026-10-08',
+      '2026-10-13',
+      '2026-10-15',
+      '2026-10-20',
+      '2026-10-22',
+      '2026-10-27',
+      '2026-10-29',
+    ]);
+  });
+
+  it('is ticked off one day at a time', () => {
+    const ticked = { ...tueThu, doneDates: ['2026-10-06'] };
+
+    expect(isTaskDoneOn(ticked, '2026-10-06')).toBe(true);
+    expect(isTaskDoneOn(ticked, '2026-10-08')).toBe(false);
+    expect(
+      openOccurrencesForDay([ticked], '2026-10-06').timed.map((occurrence) => occurrence.task.id)
+    ).toEqual([]);
+    expect(
+      doneOccurrencesForDay([ticked], '2026-10-06').map((occurrence) => occurrence.task.id)
+    ).toEqual(['tue-thu']);
+    expect(
+      openOccurrencesForDay([ticked], '2026-10-08').timed.map((occurrence) => occurrence.task.id)
+    ).toEqual(['tue-thu']);
+  });
+
+  it('counts its appearances for the week strip’s dots', () => {
+    const counts = openOccurrenceCounts([tueThu], ['2026-10-05', '2026-10-06', '2026-10-08']);
+
+    expect(counts).toEqual({ '2026-10-05': 0, '2026-10-06': 1, '2026-10-08': 1 });
+  });
+
+  it('marks its occurrences as repeating, and one-off tasks as not', () => {
+    const once = makeTask({ id: 'once' });
+    const [repeatingOccurrence] = openOccurrencesForDay([tueThu], '2026-10-06').timed;
+    const [onceOccurrence] = openOccurrencesForDay([once], '2026-09-30').anytime;
+
+    expect(repeatingOccurrence.repeating).toBe(true);
+    expect(onceOccurrence.repeating).toBe(false);
   });
 });
 

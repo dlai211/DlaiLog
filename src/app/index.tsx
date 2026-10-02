@@ -16,7 +16,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Spacing } from '@/constants/theme';
 import { CATEGORY_META } from '@/data/categories';
-import { useTheme } from '@/hooks/use-theme';
+import { StatTile } from '@/components/ui/stat-tile';
+import { useAccents, useScreenAccent, useTheme } from '@/hooks/use-theme';
 import { todayKey } from '@/lib/dates';
 import {
   formatLongDate,
@@ -28,16 +29,18 @@ import {
 } from '@/lib/format';
 import { useData } from '@/store/data-provider';
 import {
-  doneTasksForDay,
+  doneOccurrencesForDay,
   homeSummary,
   isOutOfStock,
-  overdueTasks,
+  openOccurrencesForDay,
+  overdueOccurrences,
   projectDueLabel,
   shoppingCounts,
-  tasksForDay,
+  type TaskOccurrence,
 } from '@/store/selectors';
 import type { Task } from '@/store/types';
 import { useToast } from '@/components/ui/toast';
+import { fluid } from '@/lib/fluid';
 
 /**
  * The dashboard (PRD §3): today's plan, quick notes, and one live summary of
@@ -45,16 +48,18 @@ import { useToast } from '@/components/ui/toast';
  * the module screens do.
  */
 export default function HomeScreen() {
-  const { db, addTask, updateTask, deleteTask, addNote, deleteNote } = useData();
+  const { db, addTask, updateTask, deleteTask, addNote, deleteNote, toggleTaskOn } = useData();
   const { showToast } = useToast();
   const theme = useTheme();
+  const accents = useAccents();
+  const accent = useScreenAccent('home');
   const router = useRouter();
 
   const today = todayKey();
   const summary = homeSummary(db);
-  const { timed, anytime } = tasksForDay(db.tasks, today);
-  const overdue = overdueTasks(db.tasks, today);
-  const doneToday = doneTasksForDay(db.tasks, today);
+  const { timed, anytime } = openOccurrencesForDay(db.tasks, today);
+  const overdue = overdueOccurrences(db.tasks, today);
+  const doneToday = doneOccurrencesForDay(db.tasks, today);
 
   const [quickTask, setQuickTask] = useState('');
   const [noteText, setNoteText] = useState('');
@@ -96,17 +101,17 @@ export default function HomeScreen() {
     setEditing(null);
   };
 
-  const renderRow = (task: Task, showDate = false) => (
+  const renderRow = (occurrence: TaskOccurrence, showDate = false) => (
     <TaskRow
-      key={task.id}
-      task={task}
+      key={`${occurrence.task.id}-${occurrence.date}`}
+      occurrence={occurrence}
       showDate={showDate}
-      onToggle={() => updateTask(task.id, { done: !task.done })}
+      onToggle={() => toggleTaskOn(occurrence.task.id, occurrence.date)}
       onEdit={() => {
-        setEditing(task);
+        setEditing(occurrence.task);
         setFormVisible(true);
       }}
-      onDelete={() => setPendingDelete(task)}
+      onDelete={() => setPendingDelete(occurrence.task)}
     />
   );
 
@@ -121,6 +126,7 @@ export default function HomeScreen() {
       <PageHeader
         title="Home"
         subtitle={formatLongDate(today)}
+        accent={accent}
         action={
           <Button
             label="+ New task"
@@ -133,6 +139,46 @@ export default function HomeScreen() {
           />
         }
       />
+
+      {/* One number from each module, in that module's colour */}
+      <View style={styles.statRow} testID="home-stats">
+        <StatTile
+          label="Spent this month"
+          value={formatMoney(summary.monthTotal)}
+          hint={summary.purchaseCount === 1 ? '1 entry' : `${summary.purchaseCount} entries`}
+          icon="wallet"
+          accent={accents.plum}
+          onPress={() => router.push('/spending')}
+          testID="home-stat-spending"
+        />
+        <StatTile
+          label="Open today"
+          value={String(timed.length + anytime.length)}
+          hint={overdue.length > 0 ? `${overdue.length} overdue` : 'all clear'}
+          icon="todo"
+          accent={accents.sky}
+          onPress={() => router.push('/todo')}
+          testID="home-stat-tasks"
+        />
+        <StatTile
+          label="Out of stock"
+          value={outOfStockCount === 0 ? 'None' : String(outOfStockCount)}
+          hint={outOfStockCount === 0 ? 'pantry is full' : 'pantry items'}
+          icon="box"
+          accent={accents.rose}
+          onPress={() => router.push('/inventory')}
+          testID="home-stat-pantry"
+        />
+        <StatTile
+          label="On the list"
+          value={String(shoppingOpen)}
+          hint="to buy"
+          icon="cart"
+          accent={accents.sand}
+          onPress={() => router.push('/inventory')}
+          testID="home-stat-shopping"
+        />
+      </View>
 
       <View style={styles.grid}>
         {/* Today's Plan — the To-do module, filtered to today */}
@@ -334,8 +380,12 @@ export default function HomeScreen() {
 
       <ConfirmDialog
         visible={pendingDelete !== null}
-        title="Delete this task?"
-        message={`"${truncate(pendingDelete?.title ?? '', 40)}" will be removed. This can't be undone.`}
+        title={pendingDelete?.repeat ? 'Delete this repeating task?' : 'Delete this task?'}
+        message={
+          pendingDelete?.repeat
+            ? `"${truncate(pendingDelete.title, 40)}" and all of its repeats will be removed. This can't be undone.`
+            : `"${truncate(pendingDelete?.title ?? '', 40)}" will be removed. This can't be undone.`
+        }
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => {
           if (pendingDelete) deleteTask(pendingDelete.id);
@@ -359,6 +409,11 @@ function changeColor(summary: ReturnType<typeof homeSummary>): 'dangerText' | 's
 }
 
 const styles = StyleSheet.create({
+  statRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -367,22 +422,22 @@ const styles = StyleSheet.create({
   planCard: {
     flexGrow: 2,
     flexBasis: 420,
-    minWidth: 280,
+    minWidth: fluid(280),
   },
   notesCard: {
     flexGrow: 1,
     flexBasis: 300,
-    minWidth: 260,
+    minWidth: fluid(260),
   },
   summaryCard: {
     flexGrow: 1,
     flexBasis: 300,
-    minWidth: 260,
+    minWidth: fluid(260),
   },
   watchCard: {
     flexGrow: 1,
     flexBasis: '100%',
-    minWidth: 260,
+    minWidth: fluid(260),
   },
   section: {
     gap: Spacing.one,
@@ -404,7 +459,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     borderWidth: 1,
     borderRadius: Spacing.two,
-    paddingVertical: Spacing.one + 2,
+    paddingVertical: Spacing.oneHalf,
     paddingHorizontal: Spacing.two,
   },
   noteText: {

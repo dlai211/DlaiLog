@@ -226,3 +226,36 @@ describe('Inventory — shopping list', () => {
     expect(screen.getByText('The list is empty — drop something here.')).toBeOnTheScreen();
   });
 });
+
+describe('Inventory — the stock level bar', () => {
+  it('shows how much is left, and empties when the item runs out', async () => {
+    await seed({
+      inventory: [
+        makeIngredient({ id: 'plenty', name: 'Soy sauce', key: 'soy sauce', quantity: 10, unit: 'L' }),
+        makeIngredient({ id: 'some', name: 'Vinegar', key: 'vinegar', quantity: 0.5, unit: 'L' }),
+        makeIngredient({
+          id: 'none',
+          name: 'Rice',
+          key: 'rice',
+          imageKey: 'rice',
+          category: 'grocery',
+          quantity: 0,
+          unit: 'kg',
+        }),
+      ],
+    });
+
+    await renderScreen(<InventoryScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('stock-level-plenty')).toBeOnTheScreen());
+
+    const width = (id: string) => Number(/([\d.]+)%/.exec(
+      String(screen.getByTestId(`stock-level-${id}`).props.style.width)
+    )?.[1]);
+
+    expect(width('plenty')).toBe(100); // a lot in the pantry: a full bar
+    expect(width('none')).toBe(0); // run out: an empty bar
+    expect(width('some')).toBeGreaterThan(0);
+    expect(width('some')).toBeLessThan(width('plenty'));
+  });
+});

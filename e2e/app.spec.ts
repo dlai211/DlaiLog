@@ -6,6 +6,18 @@ import { expect, test } from '@playwright/test';
  * width, and a backup really downloads.
  */
 
+/**
+ * The app fills a brand-new install with the example dataset (see
+ * src/store/sample-data.ts). These tests want a store of their own making, so
+ * they switch that off before the app loads — one key in local storage, set
+ * before any script runs.
+ */
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('dlailog:no-seed', '1');
+  });
+});
+
 test('opens in the browser with all five sections', async ({ page }) => {
   await page.goto('/');
 
@@ -249,4 +261,132 @@ test('downloading a backup really produces a file', async ({ page }) => {
 
   expect(download.suggestedFilename()).toMatch(/^dlailog-backup-\d{4}-\d{2}-\d{2}\.json$/);
   await expect(page.getByText('Backup file downloaded.')).toBeVisible();
+});
+
+test('a brand-new install opens with the example data', async ({ page }) => {
+  // Undo the opt-out the other tests set: a first visit has an empty browser.
+  await page.addInitScript(() => {
+    window.localStorage.removeItem('dlailog:no-seed');
+  });
+  await page.goto('/');
+
+  await expect(page.getByTestId('home-stats')).toBeVisible();
+  await expect(page.getByTestId('home-stat-spending')).not.toContainText('$0.00');
+
+  // The calendar has the repeating class, and the pantry has its pictures.
+  await page.getByTestId('nav-todo').click();
+  await expect(page.getByTestId('week-strip')).toBeVisible();
+  await page.getByTestId('nav-inventory').click();
+  await expect(page.getByTestId('inventory-tabs')).toBeVisible();
+  await expect(page.getByText('Soy sauce').first()).toBeVisible();
+  await expect(page.getByText('Out of stock').first()).toBeVisible();
+
+  // And the Appearance switch really changes the palette (the sidebar is a
+  // large, always-present surface, so it is the honest thing to measure).
+  const background = () =>
+    page.evaluate(() => {
+      const sidebar = document.querySelector('[data-testid="app-shell-sidebar"]');
+      return sidebar ? getComputedStyle(sidebar).backgroundColor : '';
+    });
+  await page.getByTestId('theme-option-dark').click();
+  await expect
+    .poll(async () => background())
+    .toBe('rgb(46, 51, 47)');
+  await page.getByTestId('theme-option-light').click();
+  await expect
+    .poll(async () => background())
+    .toBe('rgb(214, 218, 200)');
+
+  // The choice is remembered across a reload.
+  await page.getByTestId('theme-option-dark').click();
+  await page.reload();
+  await expect
+    .poll(async () => background())
+    .toBe('rgb(46, 51, 47)');
+});
+
+test('the sidebar compacts to a rail, and opens again when hovered', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('app-shell-sidebar')).toBeVisible();
+
+  const sidebarWidth = () =>
+    page.evaluate(() => {
+      const sidebar = document.querySelector('[data-testid="app-shell-sidebar"]');
+      return sidebar ? sidebar.getBoundingClientRect().width : 0;
+    });
+
+  const openWidth = await sidebarWidth();
+
+  await page.getByTestId('sidebar-toggle').click();
+  // Move the pointer off the sidebar: hovering keeps it open on purpose.
+  await page.mouse.move(900, 500);
+  await expect
+    .poll(async () => sidebarWidth(), { timeout: 5000 })
+    .toBeLessThan(openWidth - 60);
+
+  // Hovering the rail opens it again for as long as the pointer is on it.
+  await page.getByTestId('app-shell-sidebar').hover();
+  await expect.poll(async () => sidebarWidth()).toBeGreaterThan(openWidth - 60);
+
+  // Clicking the button pins it open, even with the pointer off it.
+  await page.getByTestId('sidebar-toggle').click();
+  await page.mouse.move(900, 500);
+  await expect.poll(async () => sidebarWidth()).toBeGreaterThan(openWidth - 20);
+});
+
+/** The next `YYYY-MM-DD` that falls on a given weekday (0 = Sunday). */
+function nextWeekday(target: number): { key: string; next: (days: number) => string } {
+  const date = new Date();
+  do {
+    date.setDate(date.getDate() + 1);
+  } while (date.getDay() !== target);
+
+  const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`;
+  const next = (days: number) => {
+    const other = new Date(date);
+    other.setDate(other.getDate() + days);
+    return `${other.getFullYear()}-${String(other.getMonth() + 1).padStart(2, '0')}-${String(
+      other.getDate()
+    ).padStart(2, '0')}`;
+  };
+  return { key, next };
+}
+
+test('a repeating task shows on every one of its days, and is ticked off one day at a time', async ({
+  page,
+}) => {
+  const tuesday = nextWeekday(2);
+  const thursday = tuesday.next(2);
+  const wednesday = tuesday.next(1);
+
+  await page.goto(`/todo?date=${tuesday.key}`);
+  await page.getByTestId('new-task').click();
+  await page.getByTestId('task-title-input').fill('Chinese class');
+  await page.getByTestId('task-time-toggle').click();
+  await page.getByTestId('task-end-add').click();
+
+  await page.getByTestId('task-repeat-toggle').click();
+  // The starting day is picked for you; add Thursday as the second day.
+  await page.getByTestId('task-day-4').click();
+  await expect(page.getByTestId('task-repeat-summary')).toContainText('Every Tue & Thu');
+  await page.getByTestId('task-save').click();
+
+  await expect(page.getByText('Chinese class')).toBeVisible();
+  await expect(page.getByText('12:00 – 2:00 pm')).toBeVisible();
+  await expect(page.getByText('Every Tue & Thu')).toBeVisible();
+
+  // Ticking Tuesday off leaves Thursday waiting.
+  const checkbox = page.locator('[data-testid^="task-check-"]').first();
+  await checkbox.click();
+  await expect(page.getByTestId('todo-done-toggle')).toBeVisible();
+
+  await page.goto(`/todo?date=${thursday}`);
+  await expect(page.getByText('Chinese class')).toBeVisible();
+  await expect(page.getByTestId('todo-done-toggle')).toHaveCount(0);
+
+  // Wednesday is not one of its days.
+  await page.goto(`/todo?date=${wednesday}`);
+  await expect(page.getByText('Nothing planned — enjoy it.')).toBeVisible();
 });

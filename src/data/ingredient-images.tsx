@@ -1,18 +1,21 @@
+import { Image } from 'react-native';
 import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radius } from '@/constants/theme';
+import { findIngredientPhoto } from '@/data/ingredient-photos';
+import { useTheme } from '@/hooks/use-theme';
+import { useUiScale } from '@/hooks/use-ui-scale';
 
 /**
  * The ingredient picture library.
  *
- * Instead of emoji, every grocery item gets a drawn tile: a soft tinted square
- * with a simple silhouette of the kind of thing it is — a bottle, a jar, a
- * bag, a leaf. They are vector, so they stay crisp at any size, cost nothing
- * to ship, need no internet, and take their colour from this file, which keeps
- * them in the app's palette in both light and dark mode.
- *
- * Swapping in real photographs later means changing only this file.
+ * Every grocery item has a picture. Where a real photograph exists (see
+ * ingredient-photos.ts) it is shown; everything else falls back to a drawn
+ * tile: a soft tinted square with a simple silhouette of the kind of thing it
+ * is — a bottle, a jar, a bag, a leaf. The drawn tiles are vector, so they
+ * stay crisp at any size, need no internet, and take their colour from this
+ * file, which keeps them in the app's palette in both light and dark mode.
  */
 
 type ShapeName =
@@ -146,6 +149,8 @@ export const INGREDIENT_TILES: IngredientTile[] = [
   { key: 'sugar', label: 'Sugar', keywords: ['sugar', 'brown sugar', 'sweetener'], shape: 'bag', tint: 'sand' },
   { key: 'pepper', label: 'Pepper', keywords: ['pepper', 'peppercorn', 'black pepper'], shape: 'jar', tint: 'clay' },
   { key: 'sauce-jar', label: 'Sauce or spread', keywords: ['sauce', 'ketchup', 'mayonnaise', 'mayo', 'jam', 'honey', 'paste', 'mustard'], shape: 'jar', tint: 'terracotta' },
+  { key: 'hot-sauce', label: 'Hot sauce', keywords: ['hot sauce', 'chilli sauce', 'chili sauce', 'sriracha', 'chilli oil', 'chili crisp'], shape: 'jar', tint: 'terracotta' },
+  { key: 'oyster-sauce', label: 'Oyster sauce', keywords: ['oyster sauce'], shape: 'bottle', tint: 'clay' },
   { key: 'rice', label: 'Rice', keywords: ['rice', 'basmati', 'jasmine', 'grain'], shape: 'bag', tint: 'sand' },
   { key: 'noodles', label: 'Noodles & pasta', keywords: ['noodles', 'pasta', 'spaghetti', 'ramen', 'vermicelli', 'macaroni'], shape: 'bag', tint: 'olive' },
   { key: 'flour', label: 'Flour & baking', keywords: ['flour', 'baking', 'yeast', 'cornstarch'], shape: 'bag', tint: 'sand' },
@@ -155,20 +160,35 @@ export const INGREDIENT_TILES: IngredientTile[] = [
   { key: 'yogurt', label: 'Yogurt', keywords: ['yogurt', 'yoghurt', 'curd'], shape: 'jar', tint: 'sky' },
   { key: 'butter', label: 'Butter', keywords: ['butter', 'margarine'], shape: 'box', tint: 'sand' },
   { key: 'cheese', label: 'Cheese', keywords: ['cheese', 'parmesan', 'cheddar'], shape: 'box', tint: 'clay' },
-  { key: 'chicken', label: 'Chicken', keywords: ['chicken', 'poultry', 'drumstick'], shape: 'meat', tint: 'terracotta' },
+  { key: 'chicken', label: 'Chicken', keywords: ['chicken', 'poultry', 'drumstick', 'chicken leg'], shape: 'meat', tint: 'terracotta' },
+  { key: 'chicken-thigh', label: 'Chicken thigh', keywords: ['chicken thigh', 'thigh', 'thighs', 'dark meat'], shape: 'meat', tint: 'terracotta' },
   { key: 'pork', label: 'Pork', keywords: ['pork', 'bacon', 'ham', 'sausage'], shape: 'meat', tint: 'terracotta' },
-  { key: 'beef', label: 'Beef', keywords: ['beef', 'steak', 'mince', 'lamb'], shape: 'meat', tint: 'terracotta' },
+  { key: 'pork-belly', label: 'Pork belly', keywords: ['pork belly', 'belly pork', 'pork slices'], shape: 'meat', tint: 'terracotta' },
+  { key: 'pork-rib', label: 'Pork ribs', keywords: ['pork rib', 'pork ribs', 'spare ribs', 'ribs'], shape: 'meat', tint: 'terracotta' },
+  { key: 'beef', label: 'Beef', keywords: ['beef', 'lamb'], shape: 'meat', tint: 'terracotta' },
+  { key: 'steak', label: 'Steak', keywords: ['steak', 'beef steak', 'sirloin', 'ribeye', 'rump'], shape: 'meat', tint: 'terracotta' },
+  { key: 'ground-beef', label: 'Minced beef', keywords: ['minced beef', 'ground beef', 'beef mince', 'mince', 'ground meat'], shape: 'meat', tint: 'terracotta' },
   { key: 'fish', label: 'Fish', keywords: ['fish', 'salmon', 'tuna', 'cod'], shape: 'fish', tint: 'sky' },
   { key: 'seafood', label: 'Shellfish', keywords: ['shrimp', 'prawn', 'seafood', 'crab', 'squid'], shape: 'fish', tint: 'terracotta' },
   { key: 'tofu', label: 'Tofu', keywords: ['tofu', 'bean curd', 'tempeh'], shape: 'box', tint: 'sand' },
   { key: 'beans', label: 'Beans & lentils', keywords: ['beans', 'lentils', 'chickpeas', 'legumes'], shape: 'bag', tint: 'olive' },
   { key: 'tomato', label: 'Tomatoes', keywords: ['tomato', 'tomatoes'], shape: 'round', tint: 'terracotta' },
   { key: 'potato', label: 'Potatoes', keywords: ['potato', 'potatoes', 'yam'], shape: 'round', tint: 'clay' },
-  { key: 'onion', label: 'Onions', keywords: ['onion', 'onions', 'shallot', 'spring onion'], shape: 'round', tint: 'sand' },
+  { key: 'onion', label: 'Onions', keywords: ['onion', 'onions', 'shallot', 'red onion'], shape: 'round', tint: 'sand' },
+  { key: 'green-onion', label: 'Green onions', keywords: ['green onion', 'spring onion', 'scallion', 'scallions'], shape: 'leaf', tint: 'olive' },
   { key: 'garlic', label: 'Garlic', keywords: ['garlic'], shape: 'round', tint: 'sage' },
   { key: 'ginger', label: 'Ginger', keywords: ['ginger'], shape: 'round', tint: 'clay' },
   { key: 'carrot', label: 'Carrots', keywords: ['carrot', 'carrots', 'radish'], shape: 'round', tint: 'terracotta' },
   { key: 'greens', label: 'Greens & veg', keywords: ['broccoli', 'spinach', 'kale', 'lettuce', 'cabbage', 'greens', 'vegetable', 'vegetables', 'celery'], shape: 'leaf', tint: 'olive' },
+  { key: 'chinese-cabbage', label: 'Chinese cabbage', keywords: ['chinese cabbage', 'napa', 'napa cabbage', 'wombok', 'wong bok'], shape: 'leaf', tint: 'olive' },
+  { key: 'bok-choy', label: 'Bok choy', keywords: ['bok choy', 'pak choi', 'bok choi', 'shanghai bok choy'], shape: 'leaf', tint: 'olive' },
+  { key: 'choy-sum', label: 'Choy sum', keywords: ['choy sum', 'choi sum', 'flowering cabbage'], shape: 'leaf', tint: 'olive' },
+  { key: 'ong-choy', label: 'Ong choy', keywords: ['ong choy', 'water spinach', 'kangkong', 'morning glory'], shape: 'leaf', tint: 'olive' },
+  { key: 'chinese-chives', label: 'Chinese chives', keywords: ['chinese chives', 'garlic chives', 'chives', 'ku chai'], shape: 'leaf', tint: 'olive' },
+  { key: 'asparagus', label: 'Asparagus', keywords: ['asparagus', 'spear', 'spears'], shape: 'leaf', tint: 'olive' },
+  { key: 'bitter-melon', label: 'Bitter melon', keywords: ['bitter melon', 'bitter gourd', 'karela'], shape: 'round', tint: 'olive' },
+  { key: 'dumpling', label: 'Dumplings', keywords: ['dumpling', 'dumplings', 'gyoza', 'wonton', 'jiaozi', 'potsticker'], shape: 'round', tint: 'sand' },
+  { key: 'bao', label: 'Bao & buns', keywords: ['bao', 'bun', 'buns', 'steamed bun', 'mantou', 'baozi'], shape: 'round', tint: 'sand' },
   { key: 'mushroom', label: 'Mushrooms', keywords: ['mushroom', 'mushrooms'], shape: 'round', tint: 'sand' },
   { key: 'corn', label: 'Corn', keywords: ['corn', 'maize', 'sweetcorn'], shape: 'grain', tint: 'clay' },
   { key: 'chilli', label: 'Chilli & peppers', keywords: ['chilli', 'chili', 'pepper', 'capsicum', 'bell pepper'], shape: 'round', tint: 'terracotta' },
@@ -193,6 +213,18 @@ export const INGREDIENT_TILES: IngredientTile[] = [
 ];
 
 const TILE_BY_KEY = new Map(INGREDIENT_TILES.map((tile) => [tile.key, tile]));
+
+/**
+ * The picture for an item with none of its own: a plain drawn bag, kept out of
+ * the searchable library so it is never offered as a real choice.
+ */
+export const NEUTRAL_TILE: IngredientTile = {
+  key: 'unknown-item',
+  label: 'Item',
+  keywords: ['item'],
+  shape: 'bag',
+  tint: 'sage',
+};
 
 export function findIngredientTile(key: string | undefined): IngredientTile | undefined {
   if (!key) return undefined;
@@ -263,9 +295,11 @@ export function IngredientTileImage({
 }) {
   const color = TINTS[tile.tint];
   const shape = SHAPES[tile.shape];
+  // Pictures follow the window like icons and text do.
+  const drawn = Math.round(size * useUiScale());
 
   return (
-    <Svg testID={testID} width={size} height={size} viewBox="0 0 48 48">
+    <Svg testID={testID} width={drawn} height={drawn} viewBox="0 0 48 48">
       <Rect x={0} y={0} width={48} height={48} rx={Radius.large} fill={color} fillOpacity={0.18} />
       {shape.fill ? <Path d={shape.fill} fill={color} fillOpacity={shape.lines || shape.circles ? 0.9 : 1} /> : null}
       {shape.lines?.map((line) => (
@@ -278,6 +312,43 @@ export function IngredientTileImage({
         <Ellipse key={`e-${cx}-${cy}`} cx={cx} cy={cy} rx={rx} ry={ry} fill={color} />
       ))}
     </Svg>
+  );
+}
+
+/**
+ * A tile's picture: the photograph when one is bundled, the drawn tile
+ * otherwise. Photographs sit on their own white square with a soft edge, in
+ * either theme — like a product sticker on the card.
+ */
+export function IngredientPicture({
+  tile,
+  size = 40,
+  testID,
+}: {
+  tile: IngredientTile;
+  size?: number;
+  testID?: string;
+}) {
+  const theme = useTheme();
+  const photo = findIngredientPhoto(tile.key);
+  const drawn = Math.round(size * useUiScale());
+
+  if (!photo) return <IngredientTileImage tile={tile} size={size} testID={testID} />;
+
+  return (
+    <Image
+      testID={testID}
+      accessibilityLabel={tile.label}
+      source={photo}
+      style={{
+        width: drawn,
+        height: drawn,
+        borderRadius: Radius.large,
+        borderWidth: 1,
+        borderColor: theme.border,
+        backgroundColor: '#FFFFFF',
+      }}
+    />
   );
 }
 
@@ -297,16 +368,18 @@ export function IngredientImage({
   size?: number;
   testID?: string;
 }) {
+  const scale = useUiScale();
   const tile = findIngredientTile(imageKey);
-  if (tile) return <IngredientTileImage tile={tile} size={size} testID={testID} />;
+  if (tile) return <IngredientPicture tile={tile} size={size} testID={testID} />;
 
   if (icon) {
+    const drawn = Math.round(size * scale);
     return (
-      <ThemedText style={{ fontSize: size * 0.6, lineHeight: size }} testID={testID}>
+      <ThemedText style={{ fontSize: drawn * 0.6, lineHeight: drawn }} testID={testID}>
         {icon}
       </ThemedText>
     );
   }
 
-  return <IngredientTileImage tile={INGREDIENT_TILES[0]} size={size} testID={testID} />;
+  return <IngredientTileImage tile={NEUTRAL_TILE} size={size} testID={testID} />;
 }

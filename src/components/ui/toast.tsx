@@ -15,6 +15,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { fluid } from '@/lib/fluid';
 
 export interface ToastOptions {
   actionLabel?: string;
@@ -121,7 +122,7 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    maxWidth: 560,
+    maxWidth: fluid(560),
     // `boxShadow` is the modern, cross-platform way to draw a shadow;
     // the old shadow* props are deprecated (and noisy in the console).
     boxShadow: '0 4px 16px rgba(47, 58, 56, 0.18)',

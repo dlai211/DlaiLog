@@ -1,14 +1,22 @@
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * The colours every screen draws with. Which palette is returned depends on
+ * the appearance choice (System / Light / Dark) — see use-theme-preference.
  */
 
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Accents, Colors, SCREEN_ACCENTS, type AccentName, type ScreenName } from '@/constants/theme';
+import { useThemeScheme } from '@/hooks/use-theme-preference';
 
 export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
+  return Colors[useThemeScheme()];
+}
 
-  return Colors[theme];
+/** The wider accent palette for the current theme — see `Accents`. */
+export function useAccents(): Record<AccentName, string> {
+  return Accents[useThemeScheme()];
+}
+
+/** The colour of one screen's accent — see `SCREEN_ACCENTS`. */
+export function useScreenAccent(screen: ScreenName): string {
+  const accents = useAccents();
+  return accents[SCREEN_ACCENTS[screen]];
 }

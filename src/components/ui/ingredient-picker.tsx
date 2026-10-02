@@ -5,14 +5,15 @@ import { ThemedText } from '@/components/themed-text';
 import { FormField } from '@/components/ui/form-field';
 import { Radius, Spacing } from '@/constants/theme';
 import {
-  INGREDIENT_TILES,
+  NEUTRAL_TILE,
   findIngredientTile,
   searchIngredientTiles,
   type IngredientTile,
 } from '@/data/ingredient-images';
-import { IngredientTileImage } from '@/data/ingredient-images';
+import { IngredientPicture } from '@/data/ingredient-images';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
+import { fluid } from '@/lib/fluid';
 
 /**
  * The picture picker that replaced the emoji grid: search by name, then tap a
@@ -92,7 +93,7 @@ export function IngredientPicker({
       <View style={styles.selectedRow}>
         {selected ? (
           <>
-            <IngredientTileImage tile={selected} size={28} />
+            <IngredientPicture tile={selected} size={28} />
             <ThemedText type="caption" themeColor="textSecondary" testID={`${testID}-selected`}>
               {selected.label}
             </ThemedText>
@@ -135,7 +136,7 @@ function TileButton({
         hovered && { borderColor: theme.borderStrong, backgroundColor: theme.hover, transform: [{ scale: 1.03 }] },
         pressed && styles.pressed,
       ]}>
-      <IngredientTileImage tile={tile} size={38} />
+      <IngredientPicture tile={tile} size={38} />
       <ThemedText type="caption" themeColor={selected ? 'text' : 'textSecondary'} numberOfLines={1}>
         {tile.label}
       </ThemedText>
@@ -145,7 +146,7 @@ function TileButton({
 
 /** Convenience for callers that only have a free-text name (e.g. a new item). */
 export function pickerFallbackTile(): IngredientTile {
-  return INGREDIENT_TILES[0];
+  return NEUTRAL_TILE;
 }
 
 const styles = StyleSheet.create({
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   tile: {
-    width: 68,
+    width: fluid(68),
     alignItems: 'center',
     gap: Spacing.half,
     paddingVertical: Spacing.one,

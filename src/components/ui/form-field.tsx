@@ -4,6 +4,7 @@ import { StyleSheet, TextInput, View, type KeyboardTypeOptions } from 'react-nat
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { fluid } from '@/lib/fluid';
 
 /** A labelled text/number input with an optional error line. */
 export function FormField({
@@ -83,18 +84,18 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderRadius: Radius.medium,
-    paddingHorizontal: Spacing.two + 2,
+    paddingHorizontal: Spacing.twoHalf,
     paddingVertical: Spacing.two,
     fontSize: 14,
-    minHeight: 40,
+    minHeight: fluid(40),
   },
   focused: {
     borderWidth: 2,
-    paddingHorizontal: Spacing.two + 1,
-    paddingVertical: Spacing.two - 1,
+    paddingHorizontal: Spacing.twoHalf,
+    paddingVertical: Spacing.two,
   },
   inputMultiline: {
-    minHeight: 84,
+    minHeight: fluid(84),
     textAlignVertical: 'top',
   },
 });

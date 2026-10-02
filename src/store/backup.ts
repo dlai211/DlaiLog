@@ -144,7 +144,11 @@ export function parseBackupFile(text: string): ParseBackupResult {
     return { ok: false, error: 'That file was not created by DlaiLog.' };
   }
 
-  if (candidate.version !== 1 && candidate.version !== DB_VERSION) {
+  // Header versions this build can read: 1 (the first release), 2 (the
+  // Meals/Inventory release) and the current one. A backup from an unknown
+  // version is refused rather than guessed at.
+  const READABLE_BACKUP_VERSIONS = [1, 2, DB_VERSION];
+  if (!READABLE_BACKUP_VERSIONS.includes(candidate.version as number)) {
     return {
       ok: false,
       error: `That backup is from a different version of DlaiLog (version ${String(candidate.version)}).`,

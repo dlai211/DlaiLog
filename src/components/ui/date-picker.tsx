@@ -3,12 +3,14 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { AppModal } from '@/components/ui/modal';
 import { MonthGrid } from '@/components/ui/month-grid';
 import { Spacing } from '@/constants/theme';
 import { monthKeyOf, monthKeyParts, todayKey } from '@/lib/dates';
 import { formatLongDate, formatMonthTitle } from '@/lib/format';
 import { useTheme } from '@/hooks/use-theme';
+import { fluid } from '@/lib/fluid';
 
 /**
  * A field that opens a month calendar to pick a day.
@@ -68,9 +70,7 @@ export function DatePicker({
         <ThemedText type="small" themeColor={value ? 'text' : 'textTertiary'}>
           {value ? formatLongDate(value) : placeholder}
         </ThemedText>
-        <ThemedText type="caption" themeColor="textTertiary">
-          📅
-        </ThemedText>
+        <Icon name="calendar" size={15} color={theme.textTertiary} />
       </Pressable>
 
       <AppModal
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.two,
-    minHeight: 40,
+    minHeight: fluid(40),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

@@ -1,7 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { AppShell, isNavItemActive, isWideLayout, NAV_ITEMS } from '@/components/app-shell';
+import { SIDEBAR_STORAGE_KEY } from '@/hooks/use-sidebar-collapsed';
 import { renderScreen } from '@/test/helpers';
 
 // Configurable stand-ins for the router and the window size. Names start with
@@ -106,5 +108,62 @@ describe('AppShell', () => {
     fireEvent.press(backup);
     expect(screen.getByTestId('backup-modal')).toBeOnTheScreen();
     expect(screen.getByTestId('backup-download')).toBeOnTheScreen();
+  });
+});
+
+describe('the sidebar’s order and its compact mode', () => {
+  it('lists the sections top to bottom as Home, To-do, Projects, Meals, Inventory, Spending, Grocery', () => {
+    expect(NAV_ITEMS.map((item) => item.id)).toEqual([
+      'home',
+      'todo',
+      'projects',
+      'meals',
+      'inventory',
+      'spending',
+      'grocery',
+    ]);
+  });
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    mockWindowWidth = 1200;
+  });
+
+  it('compacts to a rail with only the logo, then opens again on the next click', async () => {
+    render(<AppShell>{null}</AppShell>);
+    await act(async () => {});
+
+    // Open: the wordmark and the item labels are there.
+    expect(screen.getByText('DlaiLog')).toBeOnTheScreen();
+    expect(screen.getByTestId('sidebar-toggle')).toBeExpanded();
+
+    fireEvent.press(screen.getByTestId('sidebar-toggle'));
+
+    // Compacted: the logo stays, the labels go.
+    expect(screen.getByTestId('app-shell-sidebar')).toBeOnTheScreen();
+    expect(screen.getByTestId('nav-home')).toBeOnTheScreen();
+    expect(screen.queryByText('DlaiLog')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Home')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('sidebar-toggle')).not.toBeExpanded();
+    expect(await AsyncStorage.getItem(SIDEBAR_STORAGE_KEY)).toBe('collapsed');
+
+    fireEvent.press(screen.getByTestId('sidebar-toggle'));
+
+    expect(screen.getByText('DlaiLog')).toBeOnTheScreen();
+    expect(screen.getByTestId('sidebar-toggle')).toBeExpanded();
+  });
+
+  it('expands a compacted rail while the pointer is over it', async () => {
+    await AsyncStorage.setItem(SIDEBAR_STORAGE_KEY, 'collapsed');
+    render(<AppShell>{null}</AppShell>);
+    await act(async () => {});
+
+    expect(screen.queryByText('Home')).not.toBeOnTheScreen();
+
+    fireEvent(screen.getByTestId('app-shell-sidebar'), 'pointerEnter');
+    expect(screen.getByText('Home')).toBeOnTheScreen();
+
+    fireEvent(screen.getByTestId('app-shell-sidebar'), 'pointerLeave');
+    expect(screen.queryByText('Home')).not.toBeOnTheScreen();
   });
 });

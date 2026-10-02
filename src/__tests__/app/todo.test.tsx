@@ -54,7 +54,7 @@ describe('To-do — Day view', () => {
     expect(screen.queryByText('Other day task')).not.toBeOnTheScreen();
     expect(screen.getByText('TIMED')).toBeOnTheScreen();
     expect(screen.getByText('ANYTIME')).toBeOnTheScreen();
-    expect(screen.getByText('09:00')).toBeOnTheScreen();
+    expect(screen.getByText('9:00 am')).toBeOnTheScreen();
     expect(screen.getByText('Wed, Sep 30')).toBeOnTheScreen();
   });
 
@@ -95,16 +95,23 @@ describe('To-do — Day view', () => {
     fireEvent.press(screen.getByTestId('new-task'));
     fireEvent.changeText(screen.getByTestId('task-title-input'), 'Call supplier');
     fireEvent.press(screen.getByTestId('task-time-toggle'));
+    fireEvent.press(screen.getByTestId('task-end-add'));
     fireEvent.press(screen.getByTestId('task-save'));
 
     await waitFor(() => expect(screen.getByText('Call supplier')).toBeOnTheScreen());
-    expect(screen.getByText('09:00')).toBeOnTheScreen(); // default time, shown as a chip
+    // The defaults (12:00–14:00) are shown as one range chip.
+    expect(screen.getByText('12:00 – 2:00 pm')).toBeOnTheScreen();
 
-    // It must be stored on the day shown in the URL, with its time.
+    // It must be stored on the day shown in the URL, with its times.
     await waitFor(async () => {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       const saved = JSON.parse(raw as string).tasks[0];
-      expect(saved).toMatchObject({ title: 'Call supplier', date: '2026-09-30', time: '09:00' });
+      expect(saved).toMatchObject({
+        title: 'Call supplier',
+        date: '2026-09-30',
+        time: '12:00',
+        endTime: '14:00',
+      });
     });
   });
 
@@ -240,9 +247,9 @@ describe('To-do — Month view', () => {
     await seed([makeTask({ id: 'm1', title: 'Task one', date: '2026-09-15' })]);
     await renderScreen(<TodoScreen />);
     fireEvent.press(screen.getByTestId('todo-view-month'));
-    await waitFor(() => expect(screen.getByTestId('month-task-m1')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByTestId('month-task-m1-2026-09-15')).toBeOnTheScreen());
 
-    fireEvent.press(screen.getByTestId('month-task-m1'));
+    fireEvent.press(screen.getByTestId('month-task-m1-2026-09-15'));
     expect(screen.getByTestId('task-form')).toBeOnTheScreen();
     expect(screen.getByTestId('task-title-input').props.value).toBe('Task one');
     fireEvent.press(screen.getByTestId('task-cancel'));
@@ -253,5 +260,138 @@ describe('To-do — Month view', () => {
       params: { date: '2026-09-20' },
     });
     expect(screen.getByTestId('todo-view-day')).toBeSelected();
+  });
+});
+
+describe('To-do — repeating tasks', () => {
+  it('creates a weekly pattern — every Tuesday and Thursday, 12:00–14:00, until a date', async () => {
+    mockParams = { date: '2026-10-06' }; // a Tuesday
+    await renderScreen(<TodoScreen />);
+
+    fireEvent.press(screen.getByTestId('new-task'));
+    fireEvent.changeText(screen.getByTestId('task-title-input'), 'Chinese class');
+    fireEvent.press(screen.getByTestId('task-time-toggle'));
+    fireEvent.press(screen.getByTestId('task-end-add'));
+
+    fireEvent.press(screen.getByTestId('task-repeat-toggle'));
+    // The starting day is ticked already; Thursday is the second day.
+    expect(screen.getByTestId('task-day-2')).toBeSelected();
+    fireEvent.press(screen.getByTestId('task-day-4'));
+    expect(screen.getByTestId('task-day-4')).toBeSelected();
+
+    fireEvent.press(screen.getByTestId('task-until-toggle'));
+    // Pick the end date from the calendar that opens.
+    fireEvent.press(screen.getByTestId('task-until'));
+    fireEvent.press(screen.getByTestId('task-until-grid-day-2026-10-29'));
+
+    // The form says the pattern back in words before saving.
+    expect(screen.getByTestId('task-repeat-summary')).toHaveTextContent(
+      /Every Tue & Thu · 12:00 – 2:00 pm · until Oct 29/
+    );
+
+    fireEvent.press(screen.getByTestId('task-save'));
+
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const saved = JSON.parse(raw as string).tasks[0];
+      expect(saved).toMatchObject({
+        title: 'Chinese class',
+        date: '2026-10-06',
+        time: '12:00',
+        endTime: '14:00',
+        repeat: { days: [2, 4], until: '2026-10-29' },
+      });
+    });
+  });
+
+  const weeklyClass = makeTask({
+    id: 'class',
+    title: 'Chinese class',
+    date: '2026-10-06',
+    time: '12:00',
+    endTime: '14:00',
+    repeat: { days: [2, 4] },
+  });
+
+  it('shows a repeating task on each of its days, with its pattern spelled out', async () => {
+    await seed([weeklyClass]);
+
+    mockParams = { date: '2026-10-06' }; // Tuesday
+    await renderScreen(<TodoScreen />);
+
+    await waitFor(() => expect(screen.getByText('Chinese class')).toBeOnTheScreen());
+    expect(screen.getByTestId('task-repeat-class')).toHaveTextContent('Every Tue & Thu');
+    expect(screen.getByText('12:00 – 2:00 pm')).toBeOnTheScreen();
+  });
+
+  it('is not on the days between its days', async () => {
+    await seed([weeklyClass]);
+
+    mockParams = { date: '2026-10-07' }; // Wednesday
+    await renderScreen(<TodoScreen />);
+
+    await waitFor(() => expect(screen.getByText('Nothing planned — enjoy it.')).toBeOnTheScreen());
+    expect(screen.queryByText('Chinese class')).not.toBeOnTheScreen();
+  });
+
+  it('ticks off one day at a time', async () => {
+    await seed([weeklyClass]);
+
+    mockParams = { date: '2026-10-06' }; // Tuesday
+    await renderScreen(<TodoScreen />);
+    await waitFor(() => expect(screen.getByText('Chinese class')).toBeOnTheScreen());
+
+    fireEvent.press(screen.getByTestId('task-check-class'));
+
+    await waitFor(() => expect(screen.getByTestId('todo-done-toggle')).toBeOnTheScreen());
+    // The row has moved into the (closed) Done section — open it to see it ticked.
+    fireEvent.press(screen.getByTestId('todo-done-toggle'));
+    expect(screen.getByTestId('task-check-class')).toBeChecked();
+
+    // Only that day is remembered as done — Thursday comes round again.
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      expect(JSON.parse(raw as string).tasks[0].doneDates).toEqual(['2026-10-06']);
+    });
+  });
+
+  it('is waiting again on its next day', async () => {
+    await seed([{ ...weeklyClass, doneDates: ['2026-10-06'] }]);
+
+    mockParams = { date: '2026-10-08' }; // Thursday
+    await renderScreen(<TodoScreen />);
+
+    await waitFor(() => expect(screen.getByText('Chinese class')).toBeOnTheScreen());
+    expect(screen.getByTestId('task-check-class')).not.toBeChecked();
+  });
+
+  it('says that deleting a repeating task removes every occurrence', async () => {
+    mockParams = { date: '2026-10-06' };
+    await seed([
+      makeTask({ id: 'class', title: 'Chinese class', date: '2026-10-06', repeat: { days: [2, 4] } }),
+    ]);
+
+    await renderScreen(<TodoScreen />);
+    await waitFor(() => expect(screen.getByText('Chinese class')).toBeOnTheScreen());
+
+    fireEvent.press(screen.getByTestId('task-delete-class'));
+
+    expect(screen.getByText('Delete this repeating task?')).toBeOnTheScreen();
+    expect(
+      screen.getByText(/"Chinese class" and all of its repeats will be removed/)
+    ).toBeOnTheScreen();
+  });
+
+  it('keeps a repeating task’s unfinished days out of the Overdue list', async () => {
+    const today = todayKey();
+    await seed([
+      makeTask({ id: 'class', title: 'Chinese class', date: addDays(today, -21), repeat: { days: [2, 4] } }),
+    ]);
+    mockParams = { date: today };
+
+    await renderScreen(<TodoScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('todo-day-title')).toBeOnTheScreen());
+    expect(screen.queryByTestId('overdue-heading')).not.toBeOnTheScreen();
   });
 });

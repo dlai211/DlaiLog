@@ -98,6 +98,59 @@ describe('tasks', () => {
     });
     expect(screen.getByTestId('counts')).toHaveTextContent('0/0/0/0');
   });
+
+  it('ticks a repeating task off one day at a time', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addTask({
+        title: 'Chinese class',
+        date: '2026-10-06',
+        time: '12:00',
+        endTime: '14:00',
+        done: false,
+        repeat: { days: [2, 4] },
+      });
+    });
+
+    const id = latest!.db.tasks[0].id;
+
+    await act(async () => {
+      latest!.toggleTaskOn(id, '2026-10-06');
+    });
+    expect(latest!.db.tasks[0].doneDates).toEqual(['2026-10-06']);
+    expect(latest!.db.tasks[0].done).toBe(false);
+
+    await act(async () => {
+      latest!.toggleTaskOn(id, '2026-10-08');
+    });
+    expect(latest!.db.tasks[0].doneDates).toEqual(['2026-10-06', '2026-10-08']);
+
+    // Unticking one day leaves the other alone.
+    await act(async () => {
+      latest!.toggleTaskOn(id, '2026-10-06');
+    });
+    expect(latest!.db.tasks[0].doneDates).toEqual(['2026-10-08']);
+  });
+
+  it('just flips the single flag for a one-off task', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addTask({ title: 'Buy paint', date: '2026-09-30', done: false });
+    });
+
+    await act(async () => {
+      latest!.toggleTaskOn(latest!.db.tasks[0].id, '2026-09-30');
+    });
+    expect(latest!.db.tasks[0].done).toBe(true);
+    expect(latest!.db.tasks[0].doneDates).toBeUndefined();
+
+    await act(async () => {
+      latest!.toggleTaskOn(latest!.db.tasks[0].id, '2026-09-30');
+    });
+    expect(latest!.db.tasks[0].done).toBe(false);
+  });
 });
 
 describe('notes', () => {
@@ -415,5 +468,70 @@ describe('meals', () => {
       latest!.deleteMeal(latest!.db.meals[0].id);
     });
     expect(latest!.db.meals).toHaveLength(0);
+  });
+});
+
+describe('the example data', () => {
+  const originalFlag = process.env.EXPO_PUBLIC_DLAILOG_NO_SEED;
+
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_DLAILOG_NO_SEED = originalFlag;
+  });
+
+  it('fills a brand-new install, so the app opens with something to look at', async () => {
+    process.env.EXPO_PUBLIC_DLAILOG_NO_SEED = '0';
+
+    await renderReady();
+
+    expect(latest!.db.tasks.length).toBeGreaterThan(0);
+    expect(latest!.db.purchases.length).toBeGreaterThan(0);
+    expect(latest!.db.inventory.length).toBeGreaterThan(0);
+    expect(latest!.db.meals.length).toBeGreaterThan(0);
+  });
+
+  it('never touches data that is already saved', async () => {
+    process.env.EXPO_PUBLIC_DLAILOG_NO_SEED = '0';
+    await AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...emptyDB(),
+        notes: [{ id: 'n1', text: 'My own note', createdAt: '2026-09-30T08:00:00.000Z' }],
+      })
+    );
+
+    await renderReady();
+
+    expect(latest!.db.notes).toHaveLength(1);
+    expect(latest!.db.tasks).toHaveLength(0);
+  });
+
+  it('loads on demand from the settings dialog', async () => {
+    await renderReady();
+    expect(latest!.db.tasks).toHaveLength(0);
+
+    await act(async () => {
+      latest!.loadSampleData();
+    });
+
+    expect(latest!.db.tasks.length).toBeGreaterThan(0);
+    expect(latest!.db.purchases.length).toBeGreaterThan(0);
+  });
+
+  it('stays gone after "Erase everything" — it does not come back on reload', async () => {
+    process.env.EXPO_PUBLIC_DLAILOG_NO_SEED = '0';
+    const view = await renderReady();
+    expect(latest!.db.tasks.length).toBeGreaterThan(0);
+
+    await act(async () => {
+      latest!.eraseAllData();
+    });
+    expect(latest!.db.tasks).toHaveLength(0);
+
+    // A reload is a fresh provider reading the same storage.
+    view.unmount();
+    latest = null;
+    await renderReady();
+    expect(latest!.db.tasks).toHaveLength(0);
+    expect(latest!.db.purchases).toHaveLength(0);
   });
 });

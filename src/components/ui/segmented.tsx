@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   item: {
-    paddingVertical: Spacing.one + 2,
+    paddingVertical: Spacing.oneHalf,
     paddingHorizontal: Spacing.three,
     borderRadius: Radius.pill,
     borderWidth: 1,

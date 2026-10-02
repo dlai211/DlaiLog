@@ -16,6 +16,8 @@
 
 import { Platform } from 'react-native';
 
+import { fluid, fluidMax } from '@/lib/fluid';
+
 export const Colors = {
   light: {
     // Text
@@ -87,6 +89,62 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
+/**
+ * The wider earthy palette: one accent per module, plus a few spare hues for
+ * statistics and charts. All of them sit in the same muted, sun-bleached
+ * family as the core palette, and each has a dark-mode version lifted just
+ * enough to read on the dark surfaces.
+ */
+export const Accents = {
+  light: {
+    sage: '#5C7268',
+    mint: '#4F7A5A',
+    rose: '#B5735F',
+    bloom: '#B76E86',
+    clay: '#B07C42',
+    sand: '#A98B45',
+    olive: '#6E7F44',
+    sky: '#55738F',
+    plum: '#7A5F82',
+  },
+  dark: {
+    sage: '#93AEA4',
+    mint: '#9CC0A6',
+    rose: '#D6A99D',
+    bloom: '#DE9FB4',
+    clay: '#D8A97F',
+    sand: '#D6BE7E',
+    olive: '#B4C68A',
+    sky: '#9FBBD6',
+    plum: '#C0A3C4',
+  },
+} as const;
+
+export type AccentName = keyof typeof Accents.light;
+
+/** A translucent version of a colour, for soft fills behind text and icons. */
+export function soft(hex: string, alpha = '1f'): string {
+  return `${hex}${alpha}`;
+}
+
+/** The hex colour of a module's accent. */
+export function accentHex(name: AccentName, scheme: 'light' | 'dark'): string {
+  return Accents[scheme][name];
+}
+
+/** One accent per screen: the colour that screen's headings and tiles wear. */
+export const SCREEN_ACCENTS = {
+  home: 'sage',
+  todo: 'sky',
+  projects: 'clay',
+  meals: 'bloom',
+  inventory: 'olive',
+  spending: 'plum',
+  grocery: 'sand',
+} as const satisfies Record<string, AccentName>;
+
+export type ScreenName = keyof typeof SCREEN_ACCENTS;
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
@@ -112,25 +170,35 @@ export const Fonts = Platform.select({
   },
 });
 
+/**
+ * Spacing and radii scale with the window (see lib/fluid): the numbers are the
+ * design values at a 1440px-wide window, written as CSS clamps so everything
+ * keeps its proportions at any width or browser zoom. `oneHalf` and `twoHalf`
+ * are the in-between steps the layouts use (6px and 10px at design width).
+ */
 export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
+  half: fluid(2),
+  one: fluid(4),
+  oneHalf: fluid(6),
+  two: fluid(8),
+  twoHalf: fluid(10),
+  three: fluid(16),
+  four: fluid(24),
+  five: fluid(32),
+  six: fluid(64),
 } as const;
 
 export const Radius = {
-  small: 6,
-  medium: 10,
-  large: 16,
+  small: fluid(6),
+  medium: fluid(10),
+  large: fluid(16),
+  /** Fully round — a pill's radius never needs to scale. */
   pill: 999,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 1100;
+/** The reading column: it grows with the window, but never past a comfortable line length. */
+export const MaxContentWidth = fluidMax(1180, 92);
 
 /** Shared motion values, so every transition in the app feels like one system. */
 export const Motion = {

@@ -70,7 +70,7 @@ export function IconButton({
 
 const styles = StyleSheet.create({
   button: {
-    padding: Spacing.one + 2,
+    padding: Spacing.oneHalf,
     borderRadius: Radius.small,
     alignItems: 'center',
     justifyContent: 'center',

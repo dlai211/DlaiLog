@@ -68,7 +68,7 @@ describe('Home — Today’s Plan', () => {
     await waitFor(() => expect(screen.getByText('Standup meeting')).toBeOnTheScreen());
     expect(screen.getByText('Buy paint')).toBeOnTheScreen();
     expect(screen.queryByText('Next week thing')).not.toBeOnTheScreen();
-    expect(screen.getByText('09:00')).toBeOnTheScreen();
+    expect(screen.getByText('9:00 am')).toBeOnTheScreen();
   });
 
   it('ticks a task off, and back on, from Home', async () => {
@@ -248,5 +248,49 @@ describe('Home — module summaries', () => {
 
     fireEvent.press(screen.getByTestId('home-spending'));
     expect(mockPush).toHaveBeenCalledWith('/spending');
+  });
+});
+
+describe('Home — the at-a-glance row', () => {
+  it('shows one number per module, in the module’s colour', async () => {
+    await seed({
+      tasks: [makeTask({ id: 'a' }), makeTask({ id: 'b', time: '09:00' }), makeTask({ id: 'c', done: true })],
+      purchases: [makePurchase({ totalPrice: 12.5 })],
+      shopping: [
+        { id: 's1', name: 'Milk', key: 'milk', source: 'inventory', done: false, createdAt: `${today}T09:00:00.000Z` },
+      ],
+      inventory: [
+        {
+          id: 'i1',
+          name: 'Milk',
+          key: 'milk',
+          category: 'grocery',
+          quantity: 0,
+          unit: 'L',
+          createdAt: `${today}T09:00:00.000Z`,
+          updatedAt: `${today}T09:00:00.000Z`,
+        },
+      ],
+    });
+
+    await renderScreen(<HomeScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('home-stats')).toBeOnTheScreen());
+    // The tile shows the amount among its label and hint, so match loosely.
+    expect(screen.getByTestId('home-stat-spending')).toHaveTextContent(/12\.50/);
+    expect(screen.getByTestId('home-stat-tasks')).toHaveTextContent(/Open today2/);
+    expect(screen.getByTestId('home-stat-pantry')).toHaveTextContent(/Out of stock1/);
+    expect(screen.getByTestId('home-stat-shopping')).toHaveTextContent(/On the list1/);
+  });
+
+  it('takes you to the module it came from', async () => {
+    await renderScreen(<HomeScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('home-stat-spending')).toBeOnTheScreen());
+    fireEvent.press(screen.getByTestId('home-stat-spending'));
+    expect(mockPush).toHaveBeenCalledWith('/spending');
+
+    fireEvent.press(screen.getByTestId('home-stat-pantry'));
+    expect(mockPush).toHaveBeenCalledWith('/inventory');
   });
 });

@@ -62,8 +62,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderRadius: Radius.pill,
-    paddingVertical: Spacing.half + 2,
-    paddingHorizontal: Spacing.two + 2,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.twoHalf,
   },
   pressed: {
     opacity: 0.75,

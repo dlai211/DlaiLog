@@ -45,7 +45,7 @@ describe('buildBackup / backupFilename / serializeBackup', () => {
   it('wraps the database with an identifying header', () => {
     const backup = buildBackup(sampleDB, '2026-09-30T12:00:00.000Z');
 
-    expect(backup).toMatchObject({ app: 'dlailog', version: 2, exportedAt: '2026-09-30T12:00:00.000Z' });
+    expect(backup).toMatchObject({ app: 'dlailog', version: 3, exportedAt: '2026-09-30T12:00:00.000Z' });
     expect(backup.data).toEqual(sampleDB);
   });
 
@@ -86,6 +86,17 @@ describe('parseBackupFile refusals', () => {
       JSON.stringify({ app: 'dlailog', version: 99, exportedAt: 'x', data: emptyDB() }),
       'different version'
     );
+  });
+
+  it('still restores a backup written before recurring tasks existed (version 2)', () => {
+    // Version 2's header, with a version-2 database inside — the same records
+    // as today's, minus the optional repeat fields.
+    const older = { ...sampleDB, version: 2 as const };
+    const result = parseBackupFile(
+      JSON.stringify({ app: 'dlailog', version: 2, exportedAt: 'x', data: older })
+    );
+
+    expect(result).toEqual({ ok: true, db: { ...sampleDB, version: 3 } });
   });
 
   it('refuses a backup with missing sections', () => {

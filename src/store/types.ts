@@ -7,15 +7,33 @@ export type Category = 'condiment' | 'grocery' | 'misc';
 export type ProjectStatus = 'not-started' | 'in-progress' | 'done';
 export type Unit = 'ml' | 'L' | 'g' | 'kg' | 'pcs' | 'pack';
 
+/** A weekly pattern, e.g. every Tuesday and Thursday. */
+export interface TaskRepeat {
+  /** Weekdays the task comes back on: 0 = Sunday … 6 = Saturday. */
+  days: number[];
+  /** The last day the pattern runs, `YYYY-MM-DD`. Without it, it never ends. */
+  until?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
-  /** Local calendar day, `YYYY-MM-DD`. */
+  /**
+   * The task's day — for a repeating task, the day the pattern starts.
+   * Local calendar day, `YYYY-MM-DD`.
+   */
   date: string;
   /** Optional time of day, `HH:MM`. */
   time?: string;
+  /** Optional end of the time range, `HH:MM`. Only meaningful with `time`. */
+  endTime?: string;
   note?: string;
+  /** Whether a one-off task has been ticked off. Repeating tasks use `doneDates`. */
   done: boolean;
+  /** Set for a task that comes back on a weekly pattern. */
+  repeat?: TaskRepeat;
+  /** The days a repeating task has been ticked off. */
+  doneDates?: string[];
   createdAt: string;
 }
 
@@ -80,6 +98,8 @@ export interface MealIngredient {
   key: string;
   amount?: number;
   unit?: Unit;
+  /** Ingredient tile key, so the dish shows the same picture as the pantry. */
+  imageKey?: string;
 }
 
 /** A dish: a picture, what goes in it, and how to cook it. */
@@ -111,7 +131,7 @@ export interface ShoppingItem {
 }
 
 export interface DB {
-  version: 2;
+  version: 3;
   tasks: Task[];
   notes: Note[];
   projects: Project[];
@@ -121,7 +141,20 @@ export interface DB {
   shopping: ShoppingItem[];
 }
 
-export const DB_VERSION = 2 as const;
+export const DB_VERSION = 3 as const;
+
+/** True when every list is empty — a brand-new install. */
+export function isEmptyDB(db: DB): boolean {
+  return (
+    db.tasks.length === 0 &&
+    db.notes.length === 0 &&
+    db.projects.length === 0 &&
+    db.purchases.length === 0 &&
+    db.inventory.length === 0 &&
+    db.meals.length === 0 &&
+    db.shopping.length === 0
+  );
+}
 
 export function emptyDB(): DB {
   return {

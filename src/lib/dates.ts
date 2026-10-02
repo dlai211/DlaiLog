@@ -40,6 +40,11 @@ export function mondayIndex(key: string): number {
   return (parseKey(key).getDay() + 6) % 7;
 }
 
+/** `Date.getDay` for a day key: Sunday = 0 … Saturday = 6. */
+export function weekdayOf(key: string): number {
+  return parseKey(key).getDay();
+}
+
 /** The 7 day keys of the Monday-first week containing `anchor`. */
 export function weekStrip(anchor: string): string[] {
   const monday = addDays(anchor, -mondayIndex(anchor));

@@ -14,8 +14,10 @@ import { UNIT_LABELS, UNIT_OPTIONS } from '@/data/units';
 import { useTheme } from '@/hooks/use-theme';
 import { newId } from '@/lib/id';
 import { pickPhotoAsDataUrl } from '@/lib/photo';
-import { ingredientNameSuggestions, normalizeItemName } from '@/store/selectors';
+import { findInventoryItem, ingredientNameSuggestions, normalizeItemName } from '@/store/selectors';
+import { guessIngredientTile } from '@/data/ingredient-images';
 import type { Ingredient, Meal, MealIngredient, Purchase, Unit } from '@/store/types';
+import { fluid } from '@/lib/fluid';
 
 export interface MealFormValues {
   name: string;
@@ -142,6 +144,11 @@ function MealForm({
         key: normalizeItemName(ingredientName),
         amount: amount !== undefined && Number.isFinite(amount) && amount > 0 ? amount : undefined,
         unit: draft.amount.trim() === '' ? undefined : draft.unit,
+        // The picture comes from the pantry when the item is there, and
+        // otherwise from the name — so a new dish already looks right.
+        imageKey:
+          findInventoryItem(inventory, ingredientName)?.imageKey ??
+          guessIngredientTile(ingredientName)?.key,
       });
     }
 
@@ -319,7 +326,7 @@ const styles = StyleSheet.create({
   },
   photo: {
     width: '100%',
-    height: 180,
+    height: fluid(180),
     borderRadius: Radius.medium,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -327,7 +334,7 @@ const styles = StyleSheet.create({
   },
   photoPlaceholder: {
     width: '100%',
-    height: 120,
+    height: fluid(120),
     borderRadius: Radius.medium,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -356,18 +363,18 @@ const styles = StyleSheet.create({
   },
   ingredientName: {
     flex: 3,
-    minWidth: 140,
+    minWidth: fluid(140),
   },
   ingredientAmount: {
     flex: 1,
-    minWidth: 70,
+    minWidth: fluid(70),
   },
   ingredientUnit: {
     flex: 1,
-    minWidth: 80,
+    minWidth: fluid(80),
   },
   removeButton: {
-    padding: Spacing.one + 2,
+    padding: Spacing.oneHalf,
     marginTop: Spacing.three,
   },
   actions: {

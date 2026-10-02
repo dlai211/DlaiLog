@@ -13,13 +13,15 @@ import { PageHeader } from '@/components/ui/page-header';
 import { RowActions } from '@/components/ui/row-actions';
 import { useToast } from '@/components/ui/toast';
 import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useAccents, useScreenAccent, useTheme } from '@/hooks/use-theme';
 import { formatAmountUnit } from '@/lib/format';
 import { useData } from '@/store/data-provider';
 import { mealIngredientStatuses, missingIngredients } from '@/store/selectors';
 import type { Ingredient, Meal, ShoppingItem } from '@/store/types';
+import { fluid } from '@/lib/fluid';
 
 export default function MealsScreen() {
+  const accent = useScreenAccent('meals');
   const { db, addMeal, updateMeal, deleteMeal, addShoppingItem } = useData();
   const { showToast } = useToast();
 
@@ -68,6 +70,7 @@ export default function MealsScreen() {
     <>
       <PageHeader
         title="Meals"
+        accent={accent}
         subtitle="Your dishes, and what they need"
         action={
           <Button
@@ -153,6 +156,7 @@ function MealCard({
   onAddMissing: () => void;
 }) {
   const theme = useTheme();
+  const accents = useAccents();
 
   // One pass over the ingredients: what is in stock, what is missing, and
   // what is already waiting on the shopping list.
@@ -192,7 +196,7 @@ function MealCard({
         {meal.ingredients.length > 0 ? (
           <Chip
             label={allInStock ? 'In stock' : `${missing} missing`}
-            color={allInStock ? theme.successText : theme.dangerText}
+            color={allInStock ? accents.mint : accents.rose}
             selected
             testID={`meal-status-${meal.id}`}
           />
@@ -278,8 +282,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   thumb: {
-    width: 56,
-    height: 56,
+    width: fluid(56),
+    height: fluid(56),
     borderRadius: Radius.medium,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -291,7 +295,7 @@ const styles = StyleSheet.create({
   },
   headerBody: {
     flex: 1,
-    minWidth: 140,
+    minWidth: fluid(140),
     gap: Spacing.half,
   },
   details: {
@@ -309,7 +313,7 @@ const styles = StyleSheet.create({
   },
   ingredientName: {
     flex: 1,
-    minWidth: 120,
+    minWidth: fluid(120),
   },
   stepsBlock: {
     gap: Spacing.one,

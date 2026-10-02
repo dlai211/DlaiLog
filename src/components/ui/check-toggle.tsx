@@ -4,6 +4,7 @@ import { Icon } from '@/components/ui/icon';
 import { Radius } from '@/constants/theme';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
+import { fluid } from '@/lib/fluid';
 
 /** The round tick used for tasks, shopping items and anything else toggled. */
 export function CheckToggle({
@@ -42,8 +43,8 @@ export function CheckToggle({
 
 const styles = StyleSheet.create({
   box: {
-    width: 22,
-    height: 22,
+    width: fluid(22),
+    height: fluid(22),
     borderRadius: Radius.small,
     borderWidth: 2,
     alignItems: 'center',

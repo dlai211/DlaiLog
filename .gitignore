@@ -45,3 +45,8 @@ example
 # Playwright (end-to-end tests)
 test-results/
 playwright-report/
+
+# The full-size originals for the ingredient pictures. The app ships the
+# prepared 256×256 copies in assets/ingredients/ — run
+# `node scripts/prepare-ingredient-images.mjs` after adding a picture here.
+/images/

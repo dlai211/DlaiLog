@@ -3,9 +3,12 @@ import { render, screen } from '@testing-library/react-native';
 import {
   INGREDIENT_TILES,
   IngredientImage,
+  IngredientPicture,
+  findIngredientTile,
   guessIngredientTile,
   searchIngredientTiles,
 } from '@/data/ingredient-images';
+import { INGREDIENT_PHOTOS } from '@/data/ingredient-photos';
 
 describe('ingredient tile library', () => {
   it('has no duplicate keys', () => {
@@ -63,6 +66,41 @@ describe('guessIngredientTile', () => {
     expect(guessIngredientTile('')).toBeUndefined();
     expect(guessIngredientTile('x')).toBeUndefined();
     expect(guessIngredientTile('zzzzz')).toBeUndefined();
+  });
+});
+
+describe('the photographs', () => {
+  it('belongs to a real tile — a picture can never be orphaned', () => {
+    for (const key of Object.keys(INGREDIENT_PHOTOS)) {
+      expect(findIngredientTile(key)).toBeDefined();
+    }
+  });
+
+  it('covers the shopping basket the user photographed', () => {
+    expect(Object.keys(INGREDIENT_PHOTOS).length).toBeGreaterThanOrEqual(33);
+    for (const expected of ['soy-sauce', 'rice', 'egg', 'pork-belly', 'green-onion', 'dumpling']) {
+      expect(Object.keys(INGREDIENT_PHOTOS)).toContain(expected);
+    }
+  });
+
+  it('is used for those tiles, and drawn pictures for the rest', () => {
+    const rice = findIngredientTile('rice')!;
+    const detergent = findIngredientTile('detergent')!;
+
+    const { rerender } = render(<IngredientPicture tile={rice} testID="pic" />);
+    expect(screen.getByTestId('pic').props.source).toBe(INGREDIENT_PHOTOS.rice);
+
+    rerender(<IngredientPicture tile={detergent} testID="pic" />);
+    // The drawn fallback is an SVG tile, so it carries no image source.
+    expect(screen.getByTestId('pic').props.source).toBeUndefined();
+  });
+
+  it('finds the right picture for a typed name', () => {
+    expect(guessIngredientTile('green onions')?.key).toBe('green-onion');
+    expect(guessIngredientTile('pork belly slices')?.key).toBe('pork-belly');
+    expect(guessIngredientTile('napa cabbage')?.key).toBe('chinese-cabbage');
+    expect(guessIngredientTile('chicken thigh')?.key).toBe('chicken-thigh');
+    expect(guessIngredientTile('oyster sauce')?.key).toBe('oyster-sauce');
   });
 });
 

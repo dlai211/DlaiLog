@@ -21,8 +21,9 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Segmented } from '@/components/ui/segmented';
 import { useToast } from '@/components/ui/toast';
 import { Radius, Spacing } from '@/constants/theme';
+import { CATEGORY_META } from '@/data/categories';
 import { quantityStep } from '@/data/units';
-import { useTheme } from '@/hooks/use-theme';
+import { useScreenAccent, useTheme } from '@/hooks/use-theme';
 import { formatAmountUnit, formatMoney, formatQty, formatShortDate } from '@/lib/format';
 import { useData } from '@/store/data-provider';
 import {
@@ -35,10 +36,12 @@ import {
   type ShoppingSuggestion,
 } from '@/store/selectors';
 import type { Ingredient, ShoppingItem } from '@/store/types';
+import { fluid } from '@/lib/fluid';
 
 type Tab = 'stock' | 'shopping';
 
 export default function InventoryScreen() {
+  const accent = useScreenAccent('inventory');
   const {
     db,
     addIngredient,
@@ -109,6 +112,7 @@ export default function InventoryScreen() {
     <>
       <PageHeader
         title="Inventory"
+        accent={accent}
         subtitle="What's in stock, and what to buy"
         action={
           <Button
@@ -297,6 +301,16 @@ export default function InventoryScreen() {
   );
 }
 
+/**
+ * How full the stock bar is drawn: the quantity measured against four
+ * "steps" of the item (a step being what the +/− buttons move), so a bar is
+ * full when there is plenty and empty when it has run out.
+ */
+function stockLevel(item: Ingredient, step: number): number {
+  if (item.quantity <= 0) return 0;
+  return Math.max(6, Math.min(100, (item.quantity / (step * 4)) * 100));
+}
+
 function StockRow({
   item,
   lastBought,
@@ -337,6 +351,20 @@ function StockRow({
             Added by hand
           </ThemedText>
         )}
+
+        {/* How much is left, in the item's category colour. */}
+        <View style={[styles.stockTrack, { backgroundColor: theme.backgroundSelected }]}>
+          <View
+            testID={`stock-level-${item.id}`}
+            style={{
+              width: `${stockLevel(item, step)}%`,
+              backgroundColor: isOutOfStock(item)
+                ? theme.danger
+                : theme[CATEGORY_META[item.category].colorKey],
+              height: '100%',
+            }}
+          />
+        </View>
       </View>
 
       <View style={styles.stepper}>
@@ -478,20 +506,20 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   search: {
-    minWidth: 200,
+    minWidth: fluid(200),
     flexGrow: 1,
-    maxWidth: 320,
+    maxWidth: fluid(320),
   },
   stockRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    paddingVertical: Spacing.one + 2,
+    paddingVertical: Spacing.oneHalf,
     flexWrap: 'wrap',
   },
   stockBody: {
     flex: 1,
-    minWidth: 150,
+    minWidth: fluid(150),
     gap: Spacing.half,
   },
   stockNameRow: {
@@ -500,13 +528,19 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     flexWrap: 'wrap',
   },
+  stockTrack: {
+    height: 6,
+    borderRadius: Radius.pill,
+    overflow: 'hidden',
+    marginTop: 2,
+  },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,
   },
   quantity: {
-    minWidth: 64,
+    minWidth: fluid(64),
     textAlign: 'center',
   },
   shoppingGrid: {
@@ -518,7 +552,7 @@ const styles = StyleSheet.create({
   shoppingColumn: {
     flexGrow: 1,
     flexBasis: 300,
-    minWidth: 260,
+    minWidth: fluid(260),
   },
   suggestionList: {
     gap: Spacing.two,
@@ -534,7 +568,7 @@ const styles = StyleSheet.create({
   cart: {
     flexGrow: 1,
     flexBasis: 300,
-    minWidth: 260,
+    minWidth: fluid(260),
     borderWidth: 2,
     borderStyle: 'dashed',
     borderRadius: Radius.large,

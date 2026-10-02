@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     gap: Spacing.half,
   },
   button: {
-    padding: Spacing.one + 2,
+    padding: Spacing.oneHalf,
     borderRadius: Radius.small,
     alignItems: 'center',
     justifyContent: 'center',

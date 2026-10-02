@@ -525,3 +525,94 @@ Acceptance (all ticked, verified by tests and the browser suite):
 - A version-1 database is migrated forward on load — nothing is lost, the new lists start empty.
 - Version-1 **backup files still restore**, and are migrated on the way in.
 - The backup panel now reports how much of the browser's storage the data is using.
+
+---
+
+# Version 3 — recurring work, your own pictures, and a livelier app
+
+## 20. Appearance: System / Light / Dark
+
+- [x] A three-way switch — **System** (the default: follow the computer), **Light**, **Dark**
+- [x] It sits at the foot of the sidebar, and in the Backup & Restore dialog on narrow windows
+- [x] The choice is remembered in the browser, next to the data, and survives a refresh
+- [x] Dark mode is a full second palette, not an inversion: deep green-charcoal surfaces with
+      the same accents lifted just enough to read
+
+## 21. Repeating tasks
+
+- [x] A task can **repeat weekly** on any set of days — the worked example, every Tuesday and
+      Thursday, 12:00–14:00, until a chosen date, is exactly what the form builds
+- [x] The form spells the pattern back in words before saving ("Every Tue & Thu · 12:00 – 2:00 pm
+      · until Dec 18") and refuses a pattern with no days on it
+- [x] Every occurrence shows in the Day view and as a chip in the Month view, and the week strip's
+      dots count occurrences rather than records
+- [x] Each day is ticked off on its own: finishing Tuesday's class leaves Thursday's waiting
+- [x] A repeating task never appears in **Overdue** — a missed Tuesday is not a debt; the pattern
+      simply comes round again
+- [x] Deleting one warns that every occurrence goes with it
+- [x] Optional end time as well as a start time (a real time *range*, shown as "12:00 – 2:00 pm")
+
+## 22. Your own ingredient pictures
+
+- [x] 33 photographs the user supplied, prepared by `node scripts/prepare-ingredient-images.mjs`
+      (squared, fitted on white, 256×256 — 11 MB of originals become 325 KB in `assets/ingredients/`)
+- [x] They are bundled with the app: no internet, nothing downloaded at runtime
+- [x] The library grew to 68 tiles, adding the Chinese-market ingredients the photographs cover
+      (bok choy, choy sum, ong choy, chinese chives, bitter melon, bao, dumplings, pork belly,
+      pork ribs, steak, minced beef, chicken thigh, hot sauce, oyster sauce, green onions…)
+- [x] Pictures follow the same key as the pantry and purchases, so a photo added once appears
+      everywhere that item does
+- [x] Tiles without a photograph keep their drawn picture; a tile with neither gets a neutral one
+- [x] New test: no photograph can exist without a tile to belong to
+
+## 23. Sizing that keeps its proportions
+
+- [x] Spacing, type, icons, pictures, radii and the reading column are written as CSS
+      `clamp(min, share-of-width, max)` (see `src/lib/fluid.ts`), so the whole app keeps the same
+      proportions at any window width — and browser zoom no longer reshapes the layout
+- [x] SVG icons and picture tiles scale through `useUiScale`, the same curve as the CSS
+- [x] The shell simply hides the sidebar below 1000px; the reading column grows with the window
+
+## 24. The sidebar
+
+- [x] Order, top to bottom: **Home, To-do, Projects, Meals, Inventory, Spending, Grocery**
+- [x] A button at its top-right compacts it to a rail that keeps only the logo and the icons
+- [x] Hovering the rail opens it for as long as the pointer is on it, so the labels are always
+      one hover away; clicking the button again pins it open
+- [x] The choice is remembered across reloads
+
+## 25. Example data
+
+- [x] A brand-new install opens with a working example: three weeks of shopping with prices that
+      moved, a pantry with three things run out, three dishes with their ingredients and steps,
+      four projects, a week of tasks including the repeating class, and notes
+- [x] It is written **only** into a completely empty store, so it can never overwrite real data
+- [x] Backup & Restore also offers **Load example data** and **Erase everything**; erasing is
+      remembered, so the example data does not come back on reload
+- [x] Tests set `EXPO_PUBLIC_DLAILOG_NO_SEED=1` (and the browser tests set `dlailog:no-seed`),
+      so every test still controls its own data
+
+## 26. More colour, more design
+
+- [x] A wider accent palette (`Accents`) in the same earthy family: sage, mint, rose, bloom,
+      clay, sand, olive, sky, plum — each with a dark-mode version
+- [x] One accent per screen: the title pill and rule at the top of every page wears it
+- [x] Home gained an at-a-glance row — four tiles, one number per module, each in that module's
+      colour, each a shortcut to its screen
+- [x] Projects: progress bars and status chips coloured by state (mint finished, clay moving,
+      sky not started)
+- [x] Inventory: a stock-level bar under each item, in the item's category colour, empty when
+      the item has run out
+- [x] Spending: a "Where it went" bar splitting the month across the three categories
+- [x] Meals: in-stock / missing chips now wear the palette's mint and rose
+- [x] The last emoji in the interface (the date picker's calendar glyph) is gone
+
+## 27. Data, migration and backup (Version 3)
+
+- The database is now **version 3**. Version 2 databases migrate forward on load; the new task
+  fields are optional, so nothing is rewritten.
+- **Version 2 backup files still restore** (the header check accepts 1, 2 and the current
+  version), and are migrated on the way in.
+- New stored fields: `Task.repeat`, `Task.doneDates`, `Task.endTime`, `MealIngredient.imageKey`,
+  and the appearance/sidebar/seed preferences (`dlailog:theme`, `dlailog:sidebar`,
+  `dlailog:no-seed`).

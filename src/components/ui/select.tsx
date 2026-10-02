@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { AppModal } from '@/components/ui/modal';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { fluid } from '@/lib/fluid';
 
 export interface SelectOption<T extends string> {
   value: T;
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.two,
-    minHeight: 40,
+    minHeight: fluid(40),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

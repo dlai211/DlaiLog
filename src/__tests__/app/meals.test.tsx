@@ -165,3 +165,42 @@ describe('Meals', () => {
     );
   });
 });
+
+describe('Meals — ingredient pictures', () => {
+  it('takes an ingredient’s picture from the pantry, or from its name', async () => {
+    await seed({
+      inventory: [
+        {
+          id: 'i1',
+          name: 'Bok choy',
+          key: 'bok choy',
+          imageKey: 'bok-choy',
+          category: 'grocery',
+          quantity: 1,
+          unit: 'pack',
+          createdAt: '2026-09-30T08:00:00.000Z',
+          updatedAt: '2026-09-30T08:00:00.000Z',
+        },
+      ],
+    });
+
+    await renderScreen(<MealsScreen />);
+    fireEvent.press(screen.getByTestId('new-meal'));
+
+    fireEvent.changeText(screen.getByTestId('meal-name'), 'Greens and dumplings');
+    fireEvent.changeText(screen.getByTestId('meal-ingredient-name-0'), 'Bok choy');
+    fireEvent.press(screen.getByTestId('meal-add-ingredient'));
+    fireEvent.changeText(screen.getByTestId('meal-ingredient-name-1'), 'Pork belly');
+    fireEvent.changeText(screen.getByTestId('meal-steps'), 'Steam, then fry.');
+    fireEvent.press(screen.getByTestId('meal-save'));
+
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const saved = JSON.parse(raw as string).meals[0];
+      expect(saved.ingredients).toMatchObject([
+        { name: 'Bok choy', imageKey: 'bok-choy' },
+        { name: 'Pork belly', imageKey: 'pork-belly' },
+      ]);
+    });
+  });
+});

@@ -265,3 +265,21 @@ describe('Spending screen', () => {
     });
   });
 });
+
+describe('Spending — where the month went', () => {
+  it('splits the month across the categories, biggest slice included', async () => {
+    await seed([
+      makePurchase({ id: 'p1', category: 'grocery', totalPrice: 30, date: `${currentMonthKey()}-04` }),
+      makePurchase({ id: 'p2', category: 'condiment', totalPrice: 10, date: `${currentMonthKey()}-06` }),
+    ]);
+
+    await renderScreen(<SpendingScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('spending-breakdown')).toBeOnTheScreen());
+    expect(screen.getByTestId('spending-share-grocery')).toHaveStyle({ width: '75%' });
+    expect(screen.getByTestId('spending-share-condiment')).toHaveStyle({ width: '25%' });
+    // Nothing was spent on anything else, so there is no third slice.
+    expect(screen.queryByTestId('spending-share-misc')).not.toBeOnTheScreen();
+    expect(screen.getByText('Grocery $30.00')).toBeOnTheScreen();
+  });
+});

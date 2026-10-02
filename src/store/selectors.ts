@@ -1,7 +1,7 @@
 // Derived data — computed on the fly from the database, never stored.
 // Each module's selectors live in their own section.
 
-import { daysBetween, monthKeyOf, shiftMonthKey, todayKey } from '@/lib/dates';
+import { daysBetween, monthKeyOf, pad2, shiftMonthKey, todayKey, weekdayOf } from '@/lib/dates';
 import type {
   Category,
   DB,
@@ -69,43 +69,128 @@ export function projectDueLabel(
 // Tasks
 // ---------------------------------------------------------------------------
 
-/** Timed tasks first (earliest first), then untimed ones by creation order. */
-function compareTasks(a: Task, b: Task): number {
-  if (a.time && b.time) return a.time.localeCompare(b.time) || a.createdAt.localeCompare(b.createdAt);
-  if (a.time) return -1;
-  if (b.time) return 1;
-  return a.createdAt.localeCompare(b.createdAt);
+/**
+ * One task on one day.
+ *
+ * A one-off task appears on its own day only; a repeating task ("every
+ * Tuesday and Thursday until December") appears on every matching day of its
+ * series, and each of those days is ticked off on its own.
+ */
+export interface TaskOccurrence {
+  task: Task;
+  /** The day this appearance falls on. */
+  date: string;
+  done: boolean;
+  repeating: boolean;
 }
 
-/** The open tasks of one day, split into the Day view's two sections. */
-export function tasksForDay(tasks: Task[], date: string): { timed: Task[]; anytime: Task[] } {
-  const open = tasks.filter((task) => task.date === date && !task.done).sort(compareTasks);
+/** Whether a task appears on a given day. */
+export function taskOccursOn(task: Task, date: string): boolean {
+  const repeat = task.repeat;
+  if (!repeat || repeat.days.length === 0) return task.date === date;
+  if (date < task.date) return false;
+  if (repeat.until && date > repeat.until) return false;
+  return repeat.days.includes(weekdayOf(date));
+}
+
+/** Whether this day's appearance of a task has been ticked off. */
+export function isTaskDoneOn(task: Task, date: string): boolean {
+  if (task.repeat) return (task.doneDates ?? []).includes(date);
+  return task.done;
+}
+
+export function taskOccurrence(task: Task, date: string): TaskOccurrence {
   return {
-    timed: open.filter((task) => Boolean(task.time)),
-    anytime: open.filter((task) => !task.time),
+    task,
+    date,
+    done: isTaskDoneOn(task, date),
+    repeating: Boolean(task.repeat),
   };
 }
 
-export function doneTasksForDay(tasks: Task[], date: string): Task[] {
-  return tasks.filter((task) => task.date === date && task.done).sort(compareTasks);
+/** Every appearance on a day — the day view's rows and the month's chips. */
+export function occurrencesOn(tasks: Task[], date: string): TaskOccurrence[] {
+  return tasks.filter((task) => taskOccursOn(task, date)).map((task) => taskOccurrence(task, date));
 }
 
-/** Unfinished tasks from earlier days, oldest first. */
-export function overdueTasks(tasks: Task[], today: string): Task[] {
+/** Timed tasks first (earliest first), then untimed ones by creation order. */
+function compareOccurrences(a: TaskOccurrence, b: TaskOccurrence): number {
+  const at = a.task.time;
+  const bt = b.task.time;
+  if (at && bt) return at.localeCompare(bt) || a.task.createdAt.localeCompare(b.task.createdAt);
+  if (at) return -1;
+  if (bt) return 1;
+  return a.task.createdAt.localeCompare(b.task.createdAt);
+}
+
+/** The open appearances of one day, split into the Day view's two sections. */
+export function openOccurrencesForDay(
+  tasks: Task[],
+  date: string
+): { timed: TaskOccurrence[]; anytime: TaskOccurrence[] } {
+  const open = occurrencesOn(tasks, date)
+    .filter((occurrence) => !occurrence.done)
+    .sort(compareOccurrences);
+  return {
+    timed: open.filter((occurrence) => Boolean(occurrence.task.time)),
+    anytime: open.filter((occurrence) => !occurrence.task.time),
+  };
+}
+
+export function doneOccurrencesForDay(tasks: Task[], date: string): TaskOccurrence[] {
+  return occurrencesOn(tasks, date)
+    .filter((occurrence) => occurrence.done)
+    .sort(compareOccurrences);
+}
+
+/**
+ * Unfinished one-off tasks from earlier days, oldest first. Repeating tasks
+ * are left out on purpose: a missed Tuesday is not a debt, and the pattern
+ * simply comes round again.
+ */
+export function overdueOccurrences(tasks: Task[], today: string): TaskOccurrence[] {
   return tasks
-    .filter((task) => !task.done && task.date < today)
-    .sort((a, b) => a.date.localeCompare(b.date) || compareTasks(a, b));
+    .filter((task) => !task.repeat && !task.done && task.date < today)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((task) => taskOccurrence(task, task.date));
 }
 
-/** Open tasks of a month, grouped by day key — the Month view's chips. */
-export function undoneTasksByDay(tasks: Task[], monthKey: string): Record<string, Task[]> {
-  const byDay: Record<string, Task[]> = {};
-  for (const task of tasks) {
-    if (task.done || !task.date.startsWith(monthKey)) continue;
-    (byDay[task.date] ??= []).push(task);
+/** How many open appearances each of the given days has — the week strip's dots. */
+export function openOccurrenceCounts(tasks: Task[], dates: string[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const date of dates) {
+    counts[date] = occurrencesOn(tasks, date).filter((occurrence) => !occurrence.done).length;
   }
+  return counts;
+}
+
+/** Open appearances of a month, grouped by day key — the Month view's chips. */
+export function openOccurrencesByDay(tasks: Task[], monthKey: string): Record<string, TaskOccurrence[]> {
+  const byDay: Record<string, TaskOccurrence[]> = {};
+
+  for (const task of tasks) {
+    const repeat = task.repeat;
+    if (!repeat || repeat.days.length === 0) {
+      // One-off: it lands on its own day, so only that day needs a look.
+      if (!task.done && task.date.startsWith(monthKey)) {
+        (byDay[task.date] ??= []).push(taskOccurrence(task, task.date));
+      }
+      continue;
+    }
+
+    const [year, month] = monthKey.split('-').map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const key = `${monthKey}-${pad2(day)}`;
+      if (!taskOccursOn(task, key)) continue;
+      const occurrence = taskOccurrence(task, key);
+      if (occurrence.done) continue;
+      (byDay[key] ??= []).push(occurrence);
+    }
+  }
+
   for (const day of Object.keys(byDay)) {
-    byDay[day].sort(compareTasks);
+    byDay[day].sort(compareOccurrences);
   }
   return byDay;
 }
