@@ -4,24 +4,45 @@ import {
   doneTasksForDay,
   filterProjects,
   filterPurchases,
+  findSimilarItemName,
+  findSimilarStore,
   groceryItems,
   groupPurchasesByDay,
   homeSummary,
+  ingredientNameSuggestions,
+  isOutOfStock,
   itemMemory,
   itemSuggestions,
+  lastPurchaseFor,
+  looseKey,
+  mealIngredientStatuses,
+  missingIngredients,
   monthSummary,
   monthTotal,
   normalizeItemName,
   overdueTasks,
   projectDueLabel,
+  purchaseStockChange,
   recentTileKeys,
+  shoppingCounts,
+  shoppingSuggestions,
+  sortInventory,
   sortProjects,
   storeSuggestions,
   storesInUse,
   tasksForDay,
   undoneTasksByDay,
 } from '@/store/selectors';
-import { emptyDB, type Project, type Purchase, type Task } from '@/store/types';
+import {
+  emptyDB,
+  type Ingredient,
+  type Meal,
+  type MealIngredient,
+  type Project,
+  type Purchase,
+  type Task,
+  type Unit,
+} from '@/store/types';
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   const stamp = '2026-09-30T08:00:00.000Z';
@@ -549,5 +570,228 @@ describe('homeSummary', () => {
       priceMovers: [],
     });
     expect(summary.topCategory).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pantry, meals and the shopping list
+// ---------------------------------------------------------------------------
+
+function makeIngredient(overrides: Partial<Ingredient> = {}): Ingredient {
+  const stamp = '2026-09-30T08:00:00.000Z';
+  return {
+    id: 'i1',
+    name: 'Soy sauce',
+    key: 'soy sauce',
+    category: 'condiment',
+    quantity: 1,
+    unit: 'L',
+    createdAt: stamp,
+    updatedAt: stamp,
+    ...overrides,
+  };
+}
+
+function makeMeal(overrides: Partial<Meal> = {}): Meal {
+  const stamp = '2026-09-30T08:00:00.000Z';
+  return {
+    id: 'm1',
+    name: 'Braised pork rice',
+    ingredients: [],
+    steps: '',
+    createdAt: stamp,
+    updatedAt: stamp,
+    ...overrides,
+  };
+}
+
+function mealIngredient(name: string, amount?: number, unit?: Unit): MealIngredient {
+  return { id: `ing-${name}`, name, key: normalizeItemName(name), amount, unit };
+}
+
+describe('looseKey and the saved-name memory', () => {
+  it('ignores case, spacing and punctuation', () => {
+    expect(looseKey('Soy  Sauce-1')).toBe('soysauce1');
+    expect(looseKey('soy_sauce')).toBe('soysauce');
+  });
+
+  it('recognises a near-miss spelling of a tracked item', () => {
+    const purchases = [makePurchase({ itemName: 'Soy sauce' })];
+    expect(findSimilarItemName(purchases, 'soy-sauce')).toBe('Soy sauce');
+    expect(findSimilarItemName(purchases, 'SoySauce')).toBe('Soy sauce');
+  });
+
+  it('stays quiet for an exact spelling (it merges anyway) or something unrelated', () => {
+    const purchases = [makePurchase({ itemName: 'Soy sauce' })];
+    expect(findSimilarItemName(purchases, 'soy sauce')).toBeNull();
+    expect(findSimilarItemName(purchases, 'rice')).toBeNull();
+    expect(findSimilarItemName(purchases, 'so')).toBeNull();
+  });
+
+  it('does the same for store names', () => {
+    const purchases = [makePurchase({ store: 'Asia Market' })];
+    expect(findSimilarStore(purchases, 'asia-market')).toBe('Asia Market');
+    expect(findSimilarStore(purchases, 'Asia Market')).toBeNull();
+  });
+
+  it('offers loose matches while typing, not just prefixes', () => {
+    const purchases = [makePurchase({ itemName: 'Soy sauce' })];
+    expect(itemSuggestions(purchases, 'soy').map((entry) => entry.name)).toEqual(['Soy sauce']);
+    expect(itemSuggestions(purchases, 'sauce').map((entry) => entry.name)).toEqual(['Soy sauce']);
+  });
+});
+
+describe('purchaseStockChange', () => {
+  const purchase = makePurchase({ itemName: 'Soy sauce', amount: 1, unit: 'L' });
+
+  it('creates a pantry row for an item that is new to it', () => {
+    const change = purchaseStockChange([], purchase, 1);
+    expect(change?.create).toMatchObject({
+      name: 'Soy sauce',
+      key: 'soy sauce',
+      quantity: 1,
+      unit: 'L',
+      category: 'condiment',
+    });
+  });
+
+  it('adds to the count when the units match', () => {
+    const inventory = [makeIngredient({ quantity: 0.5, unit: 'L' })];
+    expect(purchaseStockChange(inventory, purchase, 1)?.patch).toMatchObject({ quantity: 1.5 });
+  });
+
+  it('subtracts when a purchase is removed, never below zero', () => {
+    const inventory = [makeIngredient({ quantity: 0.5, unit: 'L' })];
+    expect(purchaseStockChange(inventory, makePurchase({ amount: 2 }), -1)?.patch).toMatchObject({
+      quantity: 0,
+    });
+  });
+
+  it('re-bases the count when the units do not line up', () => {
+    const inventory = [makeIngredient({ quantity: 500, unit: 'ml' })];
+    expect(purchaseStockChange(inventory, purchase, 1)?.patch).toMatchObject({
+      quantity: 1,
+      unit: 'L',
+    });
+  });
+
+  it('does nothing when removing something the pantry never had', () => {
+    expect(purchaseStockChange([], purchase, -1)).toBeNull();
+  });
+});
+
+describe('inventory listing', () => {
+  it('lists out-of-stock items first', () => {
+    const items = [
+      makeIngredient({ id: 'a', name: 'Rice', key: 'rice', quantity: 5 }),
+      makeIngredient({ id: 'b', name: 'Olive oil', key: 'olive oil', quantity: 0 }),
+      makeIngredient({ id: 'c', name: 'Butter', key: 'butter', quantity: 2 }),
+    ];
+    expect(sortInventory(items).map((item) => item.name)).toEqual(['Olive oil', 'Butter', 'Rice']);
+    expect(isOutOfStock(items[1])).toBe(true);
+    expect(isOutOfStock(items[0])).toBe(false);
+  });
+
+  it('finds the most recent purchase of an item', () => {
+    const purchases = [
+      makePurchase({ id: 'old', date: '2026-08-01', totalPrice: 5 }),
+      makePurchase({ id: 'new', date: '2026-09-28', totalPrice: 6.45 }),
+    ];
+    expect(lastPurchaseFor(purchases, 'soy sauce')?.id).toBe('new');
+    expect(lastPurchaseFor(purchases, 'rice')).toBeUndefined();
+  });
+});
+
+describe('meals and the pantry', () => {
+  const meal = makeMeal({
+    ingredients: [mealIngredient('Soy sauce', 2, 'L'), mealIngredient('Pork belly', 500, 'g')],
+  });
+
+  it('labels each ingredient as in stock or missing', () => {
+    const inventory = [makeIngredient({ key: 'soy sauce', quantity: 1 })];
+    const statuses = mealIngredientStatuses(meal, inventory);
+
+    expect(statuses[0]).toMatchObject({ inStock: true, stockQuantity: 1 });
+    expect(statuses[1]).toMatchObject({ inStock: false, stockQuantity: 0 });
+  });
+
+  it('flags ingredients already waiting on the shopping list', () => {
+    const shopping = [
+      {
+        id: 's1',
+        name: 'Pork belly',
+        key: 'pork belly',
+        source: 'meal' as const,
+        done: false,
+        createdAt: '2026-09-30T08:00:00.000Z',
+      },
+    ];
+    expect(mealIngredientStatuses(meal, [], shopping)[1].onShoppingList).toBe(true);
+  });
+
+  it('lists what is missing for a dish', () => {
+    const inventory = [makeIngredient({ key: 'soy sauce', quantity: 1 })];
+    expect(missingIngredients(meal, inventory).map((ingredient) => ingredient.name)).toEqual([
+      'Pork belly',
+    ]);
+  });
+
+  it('suggests ingredient names from the pantry and from purchase history', () => {
+    const purchases = [makePurchase({ itemName: 'Soy sauce' })];
+    const inventory = [makeIngredient({ name: 'Pork belly', key: 'pork belly' })];
+
+    expect(ingredientNameSuggestions(purchases, inventory, 'so').map((entry) => entry.name)).toEqual([
+      'Soy sauce',
+    ]);
+    expect(ingredientNameSuggestions(purchases, inventory, 'pork')).toEqual([
+      { name: 'Pork belly', hint: 'in your pantry' },
+    ]);
+  });
+});
+
+describe('shoppingSuggestions', () => {
+  const meal = makeMeal({ ingredients: [mealIngredient('Pork belly')] });
+
+  it('offers pantry items that ran out and ingredients a meal needs', () => {
+    const inventory = [
+      makeIngredient({ key: 'soy sauce', name: 'Soy sauce', quantity: 0 }),
+      makeIngredient({ id: 'rice', key: 'rice', name: 'Rice', quantity: 2 }),
+    ];
+
+    const suggestions = shoppingSuggestions(inventory, [meal], []);
+
+    expect(suggestions.map((suggestion) => suggestion.name)).toEqual(['Soy sauce', 'Pork belly']);
+    expect(suggestions[0]).toMatchObject({ kind: 'inventory' });
+    expect(suggestions[1]).toMatchObject({ kind: 'meal', sourceLabel: 'Braised pork rice' });
+  });
+
+  it('leaves out anything already on the open list', () => {
+    const inventory = [makeIngredient({ key: 'soy sauce', name: 'Soy sauce', quantity: 0 })];
+    const shopping = [
+      {
+        id: 's1',
+        name: 'Soy sauce',
+        key: 'soy sauce',
+        source: 'inventory' as const,
+        done: false,
+        createdAt: '2026-09-30T08:00:00.000Z',
+      },
+    ];
+
+    expect(shoppingSuggestions(inventory, [], shopping)).toEqual([]);
+  });
+
+  it('counts open and bought items', () => {
+    const base = {
+      source: 'manual' as const,
+      createdAt: '2026-09-30T08:00:00.000Z',
+    };
+    expect(
+      shoppingCounts([
+        { ...base, id: 's1', name: 'A', key: 'a', done: false },
+        { ...base, id: 's2', name: 'B', key: 'b', done: true },
+        { ...base, id: 's3', name: 'C', key: 'c', done: false },
+      ])
+    ).toEqual({ open: 2, done: 1 });
   });
 });

@@ -67,6 +67,71 @@ test('a purchase logged in Spending appears in the Grocery Tracker, with its uni
   await expect(page.getByTestId('grocery-name-soy sauce')).toBeVisible();
 });
 
+test('a purchase fills the pantry, and a meal can send what is missing to the shopping list', async ({
+  page,
+}) => {
+  // Log a purchase — it should appear in the pantry on its own.
+  await page.goto('/spending');
+  await page.getByTestId('new-purchase').click();
+  await page.getByTestId('purchase-name').fill('Olive oil');
+  await page.getByTestId('purchase-amount').fill('1');
+  await page.getByTestId('purchase-unit').click();
+  await page.getByTestId('purchase-unit-option-L').click();
+  await page.getByTestId('purchase-total').fill('8');
+  await page.getByTestId('purchase-store').fill('SuperMart');
+  await page.getByTestId('purchase-save').click();
+
+  await page.getByTestId('nav-inventory').click();
+  await expect(page.getByText('Olive oil')).toBeVisible();
+  await expect(page.getByTestId('inventory-tabs-stock')).toContainText(/Stock \(1\)/);
+
+  // A dish that needs something the pantry does not have.
+  await page.getByTestId('nav-meals').click();
+  await page.getByTestId('new-meal').click();
+  await page.getByTestId('meal-name').fill('Garlic noodles');
+  await page.getByTestId('meal-ingredient-name-0').fill('Garlic');
+  await page.getByTestId('meal-save').click();
+
+  await expect(page.locator('[data-testid^="meal-status-"]').first()).toContainText('1 missing');
+  await page.locator('[data-testid^="meal-open-"]').first().click();
+  await page.locator('[data-testid^="meal-add-missing-"]').first().click();
+
+  // It lands in the shopping list, credited to the dish.
+  await page.getByTestId('nav-inventory').click();
+  await page.getByTestId('inventory-tabs-shopping').click();
+  await expect(page.getByTestId('shopping-cart')).toContainText('Garlic');
+  await expect(page.getByTestId('shopping-cart')).toContainText('from Garlic noodles');
+});
+
+test('dragging a suggestion into the cart adds it to the shopping list', async ({ page }) => {
+  await page.goto('/inventory');
+
+  // Something that has run out becomes a suggestion.
+  await page.getByTestId('new-inventory-item').click();
+  await page.getByTestId('inventory-name').fill('Cooking oil');
+  await page.getByTestId('inventory-quantity').fill('0');
+  await page.getByTestId('inventory-save').click();
+  await expect(page.getByText('Cooking oil')).toBeVisible();
+
+  await page.getByTestId('inventory-tabs-shopping').click();
+  // Drag by the row's grab handle.
+  const grip = page.locator('[data-testid^="suggestion-grip-"]').first();
+  const cart = page.getByTestId('shopping-cart');
+  await expect(grip).toBeVisible();
+
+  const from = await grip.boundingBox();
+  const to = await cart.boundingBox();
+  if (!from || !to) throw new Error('Could not measure the drag start and end.');
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 15 });
+  await page.mouse.up();
+
+  await expect(cart).toContainText('Cooking oil');
+  await expect(cart).toContainText('from the pantry');
+});
+
 test('the sidebar becomes a bottom bar when the window is narrow', async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto('/');
@@ -140,6 +205,27 @@ test('no console errors or warnings anywhere in the app', async ({ page }) => {
   await page.getByTestId('nav-todo').click();
   await page.getByTestId('todo-view-month').click();
   await page.getByTestId('todo-view-day').click();
+
+  // Meals: a dish with an ingredient that is not in the pantry.
+  await page.getByTestId('nav-meals').click();
+  await page.getByTestId('new-meal').click();
+  await page.getByTestId('meal-name').fill('Console guard dish');
+  await page.getByTestId('meal-ingredient-name-0').fill('Pork belly');
+  await page.getByTestId('meal-save').click();
+  await expect(page.getByText('Console guard dish')).toBeVisible();
+  await page.locator('[data-testid^="meal-open-"]').first().click();
+  await expect(page.locator('[data-testid^="meal-details-"]').first()).toBeVisible();
+
+  // Inventory: both tabs, including a stock adjustment.
+  await page.getByTestId('nav-inventory').click();
+  await page.getByTestId('new-inventory-item').click();
+  await page.getByTestId('inventory-name').fill('Olive oil');
+  await page.getByTestId('inventory-quantity').fill('2');
+  await page.getByTestId('inventory-save').click();
+  await expect(page.getByText('Olive oil')).toBeVisible();
+  await page.locator('[data-testid^="stock-inc-"]').first().click();
+  await page.getByTestId('inventory-tabs-shopping').click();
+  await expect(page.getByTestId('shopping-cart')).toBeVisible();
 
   await page.getByTestId('nav-grocery').click();
   await page.getByTestId('nav-home').click();

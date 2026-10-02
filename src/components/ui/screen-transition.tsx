@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet, View } from 'react-native';
 
 import { Motion } from '@/constants/theme';
@@ -8,7 +8,9 @@ import { Motion } from '@/constants/theme';
  * this (by key) on every navigation, so each page arrives the same way.
  */
 export function ScreenTransition({ children }: { children: ReactNode }) {
-  const progress = useRef(new Animated.Value(0)).current;
+  // State, not a ref — the animated value is read while rendering (see the
+  // note in modal.tsx).
+  const [progress] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.timing(progress, {

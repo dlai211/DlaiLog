@@ -423,7 +423,7 @@ npm run test:e2e    # builds the web app and drives it in a real browser (Playwr
 9. Spending covers **store purchases only** (things bought), not rent/bills/dining — more categories can be added later without rework.
 10. **Backup/Restore button is part of V1.**
 
-**Assumptions (safe to change later):** UI language is English · single user · emoji are the item icons (no image files) · charts are drawn with the lightest technique that renders in the browser (no heavy chart library).
+**Assumptions (safe to change later):** UI language is English · single user · charts are drawn with the lightest technique that renders in the browser (no heavy chart library). *(Superseded in Version 2: item icons are drawn ingredient tiles rather than emoji — see §13.)*
 
 ---
 
@@ -434,3 +434,94 @@ npm run test:e2e    # builds the web app and drives it in a real browser (Playwr
 - Persistence: browser local storage through AsyncStorage (survives refresh/close/restart). One storage layer used by all modules; the backup file is simply this data serialized to JSON.
 - Five existing template screens/components get repurposed (the "Explore" placeholder is removed).
 - Data model (plain): **Task**, **Note**, **Project**, **Purchase** — the Grocery Tracker derives everything from Purchases; Home derives everything from the other four.
+
+---
+
+# Version 2 — design refresh, Meals, Inventory & Shopping
+
+Added 2026-10-01. Everything below is built, committed and verified the same way as V1:
+`npm run verify` (type check + lint + 264 unit/component tests) and `npm run test:e2e`
+(10 real-browser tests, run against the built app).
+
+## 13. Design system
+
+- **Light palette** — cream `#FBF3D5` background, clean white cards, pale sage `#D6DAC8`
+  surfaces, muted sage `#9CAFAA` lines and accents, terracotta rose `#D6A99D`, dark warm text.
+- **Dark palette** — deep green-charcoal surfaces with the same accents lifted for contrast.
+  The app follows the system setting in both.
+- **Borders** — dashed for surfaces that hold things (cards, chips, panels, pop-ups), solid
+  for things you type in or press (inputs, filled buttons, the focused field).
+- **Icons** — the emoji in the navigation, empty states and row actions are replaced by a
+  monochrome SVG line-icon set (`src/components/ui/icon.tsx`); icons take the theme's colour.
+- **Pictures instead of emoji** — the emoji picker is gone. Purchases and pantry rows show a
+  drawn ingredient tile (`src/data/ingredient-images.tsx`, 50 ingredients). Version-1 rows
+  still show their old emoji, and editing one guesses the matching tile from its name.
+- **Motion** — screens fade and lift in on navigation; buttons, cards, chips, nav items and
+  row actions lift, tint or scale on hover.
+
+Acceptance (all ticked, verified by tests and the browser suite):
+- [x] Light and dark palettes; the app follows the system setting
+- [x] Dashed/solid border rule applied consistently; no emoji left in the UI chrome
+- [x] No emoji picker; ingredient pictures searchable by name and keyword
+- [x] Page transitions and hover feedback on every interactive element
+
+## 14. Meals
+
+- A dish has a **name**, an **uploaded finished-dish picture** (shrunk to 800px JPEG before
+  it is stored, because it lives in the same browser storage as everything else), an
+  **ingredients** list (name, amount, unit — with autocomplete from the pantry and purchase
+  history) and **steps to cook**.
+- Each ingredient is labelled against the pantry: **in stock (n)** or **missing**, and
+  "missing · on the shopping list" once it has been queued.
+- **Add missing to shopping list** queues everything the dish needs in one press.
+
+## 15. Inventory
+
+- The pantry is **fed by Spending automatically**: logging a purchase creates the item or
+  adds to its stock; editing a purchase moves the difference; deleting one takes its amount
+  back out (never below zero). When units don't line up, a purchase re-bases the count in
+  its own unit rather than guessing a conversion.
+- Stock is **adjustable in place** with − / + buttons that step sensibly per unit
+  (1 for pieces, 0.5 for litres and kilos, 50 for grams and millilitres).
+- Rows show an **Out of stock** label, the **last bought** date, price and store from Spending,
+  and a cart button that queues the item.
+- Items can also be added, edited and removed by hand; a hand-typed name that loosely matches
+  an existing item adds to that row instead of creating a duplicate.
+
+## 16. Shopping list
+
+- Lives beside the pantry (Inventory → **Shopping list**).
+- Suggestions come from two places: pantry items that **ran out**, and ingredients a **meal**
+  needs — each labelled with where it came from.
+- An item reaches the cart by **dragging its grab handle** onto the cart or pressing its
+  cart button. The cart highlights while something is dragged over it.
+- Items are ticked off as bought, kept until **Clear bought**, removable individually, and
+  the same item is never queued twice while it is still open.
+
+## 17. Saved-name memory (items and stores)
+
+- While typing an item or store name, saved names are offered — prefix matches first, then
+  near-misses that ignore case, spacing and punctuation ("soy-sauce" finds "Soy sauce").
+- A near-miss spelling shows a "You already track …" notice with a one-tap **Use it**.
+- Pantry stock, meal ingredients and purchase history all resolve to the same item, so the
+  same thing can no longer exist twice under slightly different names.
+
+## 18. Fixes made alongside
+
+- [x] Nested `<button>` markup (tappable cards and calendar cells containing real buttons)
+      — invalid HTML that broke hydration; containers are now plain regions and the buttons
+      inside carry the actions
+- [x] `shadow*` style props replaced with `boxShadow` (the deprecation warning is gone)
+- [x] Hydration mismatch (React #418): the pre-rendered page used the narrow shell and the
+      browser the wide one; the shell now renders only after the saved data has loaded
+- [x] Tall pop-ups can scroll again, so their Save buttons are always reachable
+- [x] A new browser test fails on **any** console error or warning, so this class of bug
+      cannot come back unnoticed
+
+## 19. Data, migration and backup
+
+- Records added: **Ingredient** (pantry), **Meal**, **ShoppingItem**; the database is now
+  **version 2**.
+- A version-1 database is migrated forward on load — nothing is lost, the new lists start empty.
+- Version-1 **backup files still restore**, and are migrated on the way in.
+- The backup panel now reports how much of the browser's storage the data is using.

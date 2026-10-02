@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AppModal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { Spacing } from '@/constants/theme';
+import { formatBytes } from '@/lib/photo';
 import {
   backupFilename,
   downloadTextFile,
@@ -90,7 +91,10 @@ export function BackupModal({ visible, onClose }: { visible: boolean; onClose: (
           ) : null}
 
           <ThemedText type="caption" themeColor="textTertiary">
-            {`A backup contains everything: tasks, notes, projects and purchases (${db.purchases.length} logged).`}
+            {`A backup contains everything: tasks, notes, projects, purchases (${db.purchases.length} logged), pantry, meals and the shopping list.`}
+          </ThemedText>
+          <ThemedText type="caption" themeColor="textTertiary" testID="backup-size">
+            {`Using about ${formatBytes(JSON.stringify(db).length)} of this browser's storage.`}
           </ThemedText>
         </View>
       </AppModal>

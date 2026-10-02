@@ -568,6 +568,23 @@ export interface PurchaseStockChange {
 }
 
 /**
+ * Finds the pantry row an item name refers to.
+ *
+ * The first pass is exact (the stored key); the second forgives the ways the
+ * same thing gets typed differently — "soy-sauce", "Soy  Sauce" and
+ * "soysauce" all land on the same row instead of piling up as new items.
+ */
+export function findInventoryItem(inventory: Ingredient[], name: string): Ingredient | undefined {
+  const key = normalizeItemName(name);
+  const exact = inventory.find((item) => item.key === key);
+  if (exact) return exact;
+
+  const loose = looseKey(name);
+  if (loose.length < 3) return undefined;
+  return inventory.find((item) => looseKey(item.key) === loose);
+}
+
+/**
  * How a purchase changes the pantry. `direction` is +1 when the purchase is
  * added (or edited into its new form) and −1 when it is removed (or edited
  * away from its old form).
@@ -584,7 +601,7 @@ export function purchaseStockChange(
   direction: 1 | -1
 ): PurchaseStockChange | null {
   const key = normalizeItemName(purchase.itemName);
-  const existing = inventory.find((item) => item.key === key);
+  const existing = findInventoryItem(inventory, purchase.itemName);
 
   if (!existing) {
     if (direction < 0) return null;
@@ -602,10 +619,14 @@ export function purchaseStockChange(
     };
   }
 
+  // The patch always targets the row that was actually matched, so a purchase
+  // typed as "soy-sauce" still moves the pantry's "Soy sauce".
+  const targetKey = existing.key;
+
   if (existing.unit !== purchase.unit) {
     if (direction < 0) return null;
     return {
-      key,
+      key: targetKey,
       patch: {
         quantity: purchase.amount,
         unit: purchase.unit,
@@ -623,14 +644,14 @@ export function purchaseStockChange(
 
   return direction > 0
     ? {
-        key,
+        key: targetKey,
         patch: {
           quantity: nextQuantity,
           imageKey: purchase.imageKey ?? existing.imageKey,
           icon: purchase.icon ?? existing.icon,
         },
       }
-    : { key, patch: { quantity: nextQuantity } };
+    : { key: targetKey, patch: { quantity: nextQuantity } };
 }
 
 // ---------------------------------------------------------------------------
@@ -667,6 +688,39 @@ export function missingIngredients(meal: Meal, inventory: Ingredient[], shopping
   return mealIngredientStatuses(meal, inventory, shopping)
     .filter((status) => !status.inStock)
     .map((status) => status.ingredient);
+}
+
+/**
+ * Names to offer while typing an ingredient: everything in the pantry plus
+ * everything ever bought, so a dish and a purchase use the same spelling.
+ */
+export function ingredientNameSuggestions(
+  purchases: Purchase[],
+  inventory: Ingredient[],
+  prefix: string,
+  limit = 5
+): { name: string; hint?: string }[] {
+  const query = normalizeItemName(prefix);
+  if (!query) return [];
+
+  const loose = looseKey(prefix);
+  const names = new Map<string, string>();
+  for (const item of inventory) names.set(item.key, item.name);
+  for (const entry of Object.values(itemMemory(purchases))) {
+    const key = normalizeItemName(entry.name);
+    if (!names.has(key)) names.set(key, entry.name);
+  }
+
+  const entries = [...names.entries()].filter(([key]) => key !== query);
+  const prefixHits = entries.filter(([key]) => key.startsWith(query));
+  const looseHits = entries.filter(
+    ([key]) => !key.startsWith(query) && loose.length >= 3 && looseKey(key).includes(loose)
+  );
+
+  return [...prefixHits, ...looseHits].slice(0, limit).map(([key, name]) => ({
+    name,
+    hint: inventory.some((item) => item.key === key) ? 'in your pantry' : undefined,
+  }));
 }
 
 // ---------------------------------------------------------------------------

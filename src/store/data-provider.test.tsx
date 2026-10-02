@@ -6,7 +6,7 @@ import { Text } from 'react-native';
 import { ToastProvider } from '@/components/ui/toast';
 import { DataProvider, useData, type DataContextValue } from '@/store/data-provider';
 import { STORAGE_KEY } from '@/store/storage';
-import { emptyDB, type Task } from '@/store/types';
+import { emptyDB, type NewPurchase, type Task } from '@/store/types';
 
 let latest: DataContextValue | null = null;
 
@@ -221,5 +221,199 @@ describe('persistence', () => {
     await waitFor(() => expect(screen.getByTestId('counts')).toHaveTextContent('0/0/1/0'));
     expect(latest!.db.projects[0].name).toBe('DlaiLog website');
     expect(latest!.db.projects[0].progress).toBe(40);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pantry, meals and the shopping list
+// ---------------------------------------------------------------------------
+
+function soySaucePurchase(overrides: Partial<NewPurchase> = {}): NewPurchase {
+  return {
+    date: '2026-09-28',
+    itemName: 'Soy sauce',
+    imageKey: 'soy-sauce',
+    category: 'condiment',
+    amount: 1,
+    unit: 'L',
+    totalPrice: 6.45,
+    store: 'Asia Market',
+    ...overrides,
+  };
+}
+
+describe('purchases move the pantry', () => {
+  it('creates a pantry row for a new item, then adds to it', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addPurchase(soySaucePurchase());
+    });
+    expect(latest!.db.inventory).toHaveLength(1);
+    expect(latest!.db.inventory[0]).toMatchObject({
+      name: 'Soy sauce',
+      quantity: 1,
+      unit: 'L',
+      imageKey: 'soy-sauce',
+      category: 'condiment',
+    });
+
+    await act(async () => {
+      latest!.addPurchase(soySaucePurchase({ amount: 2 }));
+    });
+    expect(latest!.db.inventory[0].quantity).toBe(3);
+  });
+
+  it('takes the amount back out when the purchase is deleted', async () => {
+    await renderReady();
+    await act(async () => {
+      latest!.addPurchase(soySaucePurchase({ amount: 2 }));
+    });
+
+    await act(async () => {
+      latest!.deletePurchase(latest!.db.purchases[0].id);
+    });
+
+    expect(latest!.db.inventory[0].quantity).toBe(0);
+    expect(latest!.db.purchases).toHaveLength(0);
+  });
+
+  it('moves only the difference when a purchase is edited', async () => {
+    await renderReady();
+    await act(async () => {
+      latest!.addPurchase(soySaucePurchase({ amount: 1 }));
+    });
+
+    await act(async () => {
+      latest!.updatePurchase(latest!.db.purchases[0].id, { amount: 3 });
+    });
+
+    expect(latest!.db.inventory[0].quantity).toBe(3);
+  });
+
+  it('moves the stock to the new item when a purchase is renamed', async () => {
+    await renderReady();
+    await act(async () => {
+      latest!.addPurchase(soySaucePurchase({ amount: 2 }));
+    });
+
+    await act(async () => {
+      latest!.updatePurchase(latest!.db.purchases[0].id, { itemName: 'Rice' });
+    });
+
+    const byName = Object.fromEntries(latest!.db.inventory.map((item) => [item.name, item.quantity]));
+    expect(byName).toEqual({ 'Soy sauce': 0, Rice: 2 });
+  });
+});
+
+describe('inventory actions', () => {
+  it('adds, edits and removes pantry items', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addIngredient({
+        name: 'Olive oil',
+        key: 'olive oil',
+        category: 'condiment',
+        quantity: 1,
+        unit: 'L',
+      });
+    });
+    expect(latest!.db.inventory).toHaveLength(1);
+
+    await act(async () => {
+      latest!.updateIngredient(latest!.db.inventory[0].id, { quantity: 2 });
+    });
+    expect(latest!.db.inventory[0].quantity).toBe(2);
+
+    await act(async () => {
+      latest!.deleteIngredient(latest!.db.inventory[0].id);
+    });
+    expect(latest!.db.inventory).toHaveLength(0);
+  });
+
+  it('adjusts with the +/- helper and never dips below zero', async () => {
+    await renderReady();
+    await act(async () => {
+      latest!.addIngredient({
+        name: 'Rice',
+        key: 'rice',
+        category: 'grocery',
+        quantity: 5,
+        unit: 'kg',
+      });
+    });
+    const id = latest!.db.inventory[0].id;
+
+    await act(async () => {
+      latest!.adjustIngredientQuantity(id, -2.5);
+    });
+    expect(latest!.db.inventory[0].quantity).toBe(2.5);
+
+    await act(async () => {
+      latest!.adjustIngredientQuantity(id, -10);
+    });
+    expect(latest!.db.inventory[0].quantity).toBe(0);
+  });
+});
+
+describe('shopping list', () => {
+  it('does not queue the same item twice while it is still open', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addShoppingItem({ name: 'Soy sauce', key: 'soy sauce', source: 'inventory', done: false });
+    });
+    await act(async () => {
+      latest!.addShoppingItem({ name: 'Soy sauce', key: 'soy sauce', source: 'meal', done: false });
+    });
+
+    expect(latest!.db.shopping).toHaveLength(1);
+  });
+
+  it('toggles items and clears only the bought ones', async () => {
+    await renderReady();
+    await act(async () => {
+      latest!.addShoppingItem({ name: 'A', key: 'a', source: 'manual', done: false });
+      latest!.addShoppingItem({ name: 'B', key: 'b', source: 'manual', done: false });
+    });
+
+    await act(async () => {
+      latest!.toggleShoppingItem(latest!.db.shopping[0].id);
+    });
+    expect(latest!.db.shopping[0].done).toBe(true);
+
+    await act(async () => {
+      latest!.clearDoneShopping();
+    });
+    expect(latest!.db.shopping.map((item) => item.name)).toEqual(['B']);
+  });
+});
+
+describe('meals', () => {
+  it('adds, edits and deletes a dish with its ingredients', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addMeal({
+        name: 'Braised pork rice',
+        ingredients: [
+          { id: 'ing-1', name: 'Soy sauce', key: 'soy sauce', amount: 2, unit: 'L' },
+        ],
+        steps: '1. Brown the pork',
+      });
+    });
+    expect(latest!.db.meals[0]).toMatchObject({ name: 'Braised pork rice' });
+    expect(latest!.db.meals[0].ingredients).toHaveLength(1);
+
+    await act(async () => {
+      latest!.updateMeal(latest!.db.meals[0].id, { steps: '1. Brown the pork\n2. Add the sauce' });
+    });
+    expect(latest!.db.meals[0].steps).toContain('Add the sauce');
+
+    await act(async () => {
+      latest!.deleteMeal(latest!.db.meals[0].id);
+    });
+    expect(latest!.db.meals).toHaveLength(0);
   });
 });

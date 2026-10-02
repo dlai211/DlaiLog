@@ -199,7 +199,7 @@ export function findIngredientTile(key: string | undefined): IngredientTile | un
   return TILE_BY_KEY.get(key);
 }
 
-export function searchIngredientTiles(query: string, limit = 18): IngredientTile[] {
+export function searchIngredientTiles(query: string, limit = 12): IngredientTile[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return INGREDIENT_TILES.slice(0, limit);
 
@@ -211,22 +211,43 @@ export function searchIngredientTiles(query: string, limit = 18): IngredientTile
   ).slice(0, limit);
 }
 
+function words(text: string): string[] {
+  return text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+
 /**
  * The tile a typed item name most likely means — used to preselect the right
- * picture when someone types "soya sauce" or "dish soap".
+ * picture when someone types "Kikkoman soya sauce" or "dish soap".
+ *
+ * Scored by words rather than raw substrings, so a specific match
+ * ("soya sauce" → the soy-sauce bottle) beats a generic one ("sauce" → the
+ * generic jar). Longer words are worth more, and a whole phrase match — the
+ * label or a keyword appearing verbatim — is worth the most.
  */
 export function guessIngredientTile(name: string): IngredientTile | undefined {
   const normalized = name.trim().toLowerCase();
   if (normalized.length < 2) return undefined;
 
+  const nameWords = words(normalized);
+  if (nameWords.length === 0) return undefined;
+
   let best: { tile: IngredientTile; score: number } | undefined;
+
   for (const tile of INGREDIENT_TILES) {
-    for (const keyword of [tile.label.toLowerCase(), ...tile.keywords]) {
-      if (!normalized.includes(keyword)) continue;
-      const score = keyword.length;
-      if (!best || score > best.score) best = { tile, score };
+    const tileWords = new Set([...words(tile.label), ...tile.keywords.flatMap(words)]);
+
+    let score = 0;
+    for (const word of nameWords) {
+      if (word.length >= 3 && tileWords.has(word)) score += word.length;
     }
+
+    for (const phrase of [tile.label.toLowerCase(), ...tile.keywords]) {
+      if (normalized.includes(phrase)) score += phrase.length;
+    }
+
+    if (score > 0 && (!best || score > best.score)) best = { tile, score };
   }
+
   return best?.tile;
 }
 

@@ -8,13 +8,16 @@
 | **Approach** | 10 small phases; the app stays runnable and demo-able at the end of every phase |
 | **Audience** | The owner (a beginner) + any future development session |
 
-> **Status: V1 complete** — all ten phases are built, committed and verified.
+> **Status: V1 complete; Version 2 built on top.** All ten phases are built, committed and
+> verified, and the design refresh plus the Meals, Inventory and Shopping modules are
+> described in `PRD.md` §13–19.
 > Every acceptance criterion in `PRD.md` §10 is ticked, with a note on how it is verified.
 > The work sits on the `build/v1` branch, one checkpoint commit per phase; `main` is untouched.
 >
 > Run it: `npm run web` (opens the app in the browser) ·
-> Check it: `npm run verify` (types + lint + 206 unit/component tests) ·
-> `npm run test:e2e` (builds the app and drives it in a real browser)
+> Check it: `npm run verify` (types + lint + 264 unit/component tests) ·
+> `npm run test:e2e` (builds the app and drives it in a real browser — 10 tests,
+> including a real drag-and-drop and a console-error guard)
 
 ---
 

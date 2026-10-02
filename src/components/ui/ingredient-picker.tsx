@@ -135,7 +135,7 @@ function TileButton({
         hovered && { borderColor: theme.borderStrong, backgroundColor: theme.hover, transform: [{ scale: 1.03 }] },
         pressed && styles.pressed,
       ]}>
-      <IngredientTileImage tile={tile} size={44} />
+      <IngredientTileImage tile={tile} size={38} />
       <ThemedText type="caption" themeColor={selected ? 'text' : 'textSecondary'} numberOfLines={1}>
         {tile.label}
       </ThemedText>
@@ -161,11 +161,11 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   tile: {
-    width: 78,
+    width: 68,
     alignItems: 'center',
     gap: Spacing.half,
-    paddingVertical: Spacing.one + 2,
-    paddingHorizontal: Spacing.one,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.half,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderRadius: Radius.medium,

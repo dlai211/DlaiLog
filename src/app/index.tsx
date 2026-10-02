@@ -30,8 +30,10 @@ import { useData } from '@/store/data-provider';
 import {
   doneTasksForDay,
   homeSummary,
+  isOutOfStock,
   overdueTasks,
   projectDueLabel,
+  shoppingCounts,
   tasksForDay,
 } from '@/store/selectors';
 import type { Task } from '@/store/types';
@@ -110,6 +112,9 @@ export default function HomeScreen() {
 
   const notes = [...db.notes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const dayIsEmpty = overdue.length === 0 && timed.length === 0 && anytime.length === 0 && doneToday.length === 0;
+
+  const outOfStockCount = db.inventory.filter(isOutOfStock).length;
+  const shoppingOpen = shoppingCounts(db.shopping).open;
 
   return (
     <>
@@ -265,6 +270,25 @@ export default function HomeScreen() {
               );
             })
           )}
+        </Card>
+
+        {/* Pantry + shopping list */}
+        <Card
+          testID="home-pantry"
+          style={styles.summaryCard}
+          onPress={() => router.push('/inventory')}>
+          <ThemedText type="smallBold">Pantry &amp; shopping</ThemedText>
+          <ThemedText
+            type="heading"
+            themeColor={outOfStockCount > 0 ? 'dangerText' : 'text'}
+            testID="home-pantry-out">
+            {outOfStockCount === 0 ? 'All stocked up' : `${outOfStockCount} out of stock`}
+          </ThemedText>
+          <ThemedText type="caption" themeColor="textTertiary" testID="home-pantry-shopping">
+            {shoppingOpen === 0
+              ? 'Nothing on the shopping list'
+              : `${shoppingOpen} ${shoppingOpen === 1 ? 'item' : 'items'} on the shopping list`}
+          </ThemedText>
         </Card>
 
         {/* Grocery Watch */}

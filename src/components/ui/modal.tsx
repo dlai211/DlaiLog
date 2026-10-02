@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -27,7 +27,9 @@ export function AppModal({
   testID?: string;
 }) {
   const theme = useTheme();
-  const progress = useRef(new Animated.Value(0)).current;
+  // Held in state rather than a ref: it is a stable object that is read while
+  // rendering (the compiler forbids ref reads during render).
+  const [progress] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     if (!visible) {
@@ -118,6 +120,9 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     padding: Spacing.three,
     gap: Spacing.three,
+    // Let the dialog shrink to the window and hand the remaining space to the
+    // scrolling body, so tall forms still reach their buttons.
+    maxHeight: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -137,6 +142,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flexGrow: 0,
+    flexShrink: 1,
   },
   bodyContent: {
     gap: Spacing.three,
