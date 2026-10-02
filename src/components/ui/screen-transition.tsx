@@ -44,6 +44,7 @@ const styles = StyleSheet.create({
   },
   inner: {
     width: '100%',
-    gap: 16,
+    // The vertical rhythm every screen shares: header, then its sections.
+    gap: 24,
   },
 });

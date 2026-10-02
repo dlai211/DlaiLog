@@ -75,8 +75,9 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     borderWidth: 1,
     borderStyle: 'dashed',
-    padding: Spacing.three,
-    gap: Spacing.two,
+    // Comfortable, so content never looks pinched against the edge.
+    padding: 18,
+    gap: Spacing.twoHalf,
   },
   hovered: {
     transform: [{ scale: 1.01 }],

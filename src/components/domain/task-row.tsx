@@ -7,7 +7,6 @@ import { RowActions } from '@/components/ui/row-actions';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatRepeatDays, formatShortDate, formatTimeRange } from '@/lib/format';
-import { fluid } from '@/lib/fluid';
 import type { TaskOccurrence } from '@/store/selectors';
 
 /**
@@ -113,8 +112,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   checkbox: {
-    width: fluid(22),
-    height: fluid(22),
+    width: 22,
+    height: 22,
     borderRadius: 6,
     borderWidth: 2,
     alignItems: 'center',

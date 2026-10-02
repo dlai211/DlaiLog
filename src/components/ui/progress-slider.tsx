@@ -5,7 +5,6 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fluid } from '@/lib/fluid';
 
 /** Rounds to the nearest multiple of `step`, clamped to 0–100. */
 export function snapToStep(value: number, step = 5): number {
@@ -94,24 +93,24 @@ const styles = StyleSheet.create({
   },
   track: {
     flex: 1,
-    height: fluid(12),
+    height: 12,
     borderRadius: 6,
     justifyContent: 'center',
   },
   fill: {
-    height: fluid(12),
+    height: 12,
     borderRadius: 6,
   },
   thumb: {
     position: 'absolute',
-    width: fluid(18),
-    height: fluid(18),
+    width: 18,
+    height: 18,
     borderRadius: 9,
     borderWidth: 2,
     marginLeft: -9,
   },
   percent: {
-    minWidth: fluid(44),
+    minWidth: 44,
     textAlign: 'right',
   },
 });

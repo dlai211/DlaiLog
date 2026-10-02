@@ -5,7 +5,6 @@ import { ThemedText } from '@/components/themed-text';
 import { Radius } from '@/constants/theme';
 import { findIngredientPhoto } from '@/data/ingredient-photos';
 import { useTheme } from '@/hooks/use-theme';
-import { useUiScale } from '@/hooks/use-ui-scale';
 
 /**
  * The ingredient picture library.
@@ -295,11 +294,9 @@ export function IngredientTileImage({
 }) {
   const color = TINTS[tile.tint];
   const shape = SHAPES[tile.shape];
-  // Pictures follow the window like icons and text do.
-  const drawn = Math.round(size * useUiScale());
 
   return (
-    <Svg testID={testID} width={drawn} height={drawn} viewBox="0 0 48 48">
+    <Svg testID={testID} width={size} height={size} viewBox="0 0 48 48">
       <Rect x={0} y={0} width={48} height={48} rx={Radius.large} fill={color} fillOpacity={0.18} />
       {shape.fill ? <Path d={shape.fill} fill={color} fillOpacity={shape.lines || shape.circles ? 0.9 : 1} /> : null}
       {shape.lines?.map((line) => (
@@ -331,7 +328,6 @@ export function IngredientPicture({
 }) {
   const theme = useTheme();
   const photo = findIngredientPhoto(tile.key);
-  const drawn = Math.round(size * useUiScale());
 
   if (!photo) return <IngredientTileImage tile={tile} size={size} testID={testID} />;
 
@@ -341,8 +337,8 @@ export function IngredientPicture({
       accessibilityLabel={tile.label}
       source={photo}
       style={{
-        width: drawn,
-        height: drawn,
+        width: size,
+        height: size,
         borderRadius: Radius.large,
         borderWidth: 1,
         borderColor: theme.border,
@@ -368,14 +364,12 @@ export function IngredientImage({
   size?: number;
   testID?: string;
 }) {
-  const scale = useUiScale();
   const tile = findIngredientTile(imageKey);
   if (tile) return <IngredientPicture tile={tile} size={size} testID={testID} />;
 
   if (icon) {
-    const drawn = Math.round(size * scale);
     return (
-      <ThemedText style={{ fontSize: drawn * 0.6, lineHeight: drawn }} testID={testID}>
+      <ThemedText style={{ fontSize: size * 0.6, lineHeight: size }} testID={testID}>
         {icon}
       </ThemedText>
     );

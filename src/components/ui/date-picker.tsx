@@ -10,7 +10,6 @@ import { Spacing } from '@/constants/theme';
 import { monthKeyOf, monthKeyParts, todayKey } from '@/lib/dates';
 import { formatLongDate, formatMonthTitle } from '@/lib/format';
 import { useTheme } from '@/hooks/use-theme';
-import { fluid } from '@/lib/fluid';
 
 /**
  * A field that opens a month calendar to pick a day.
@@ -117,7 +116,7 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.two,
-    minHeight: fluid(40),
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

@@ -22,7 +22,6 @@ import {
 import { useData } from '@/store/data-provider';
 import { categoryCounts, groceryItems, type GroceryItem } from '@/store/selectors';
 import type { Category } from '@/store/types';
-import { fluid } from '@/lib/fluid';
 
 export default function GroceryScreen() {
   const accent = useScreenAccent('grocery');
@@ -235,7 +234,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   searchRow: {
-    maxWidth: fluid(320),
+    maxWidth: 320,
   },
   card: {
     borderWidth: 1,
@@ -256,7 +255,7 @@ const styles = StyleSheet.create({
   cardBody: {
     flex: 1,
     gap: Spacing.half,
-    minWidth: fluid(140),
+    minWidth: 140,
   },
   priceBlock: {
     alignItems: 'flex-end',
@@ -276,9 +275,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   historyDate: {
-    minWidth: fluid(52),
+    minWidth: 52,
   },
   historyStore: {
-    minWidth: fluid(90),
+    minWidth: 90,
   },
 });

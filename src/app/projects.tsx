@@ -24,7 +24,6 @@ import {
   type ProjectFilter,
 } from '@/store/selectors';
 import type { Project } from '@/store/types';
-import { fluid } from '@/lib/fluid';
 
 export default function ProjectsScreen() {
   const accent = useScreenAccent('projects');
@@ -212,8 +211,8 @@ const styles = StyleSheet.create({
   card: {
     flexGrow: 1,
     flexBasis: 300,
-    minWidth: fluid(260),
-    maxWidth: fluid(560),
+    minWidth: 260,
+    maxWidth: 560,
   },
   cardDone: {
     opacity: 0.6,

@@ -18,7 +18,6 @@ import { formatAmountUnit } from '@/lib/format';
 import { useData } from '@/store/data-provider';
 import { mealIngredientStatuses, missingIngredients } from '@/store/selectors';
 import type { Ingredient, Meal, ShoppingItem } from '@/store/types';
-import { fluid } from '@/lib/fluid';
 
 export default function MealsScreen() {
   const accent = useScreenAccent('meals');
@@ -282,8 +281,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   thumb: {
-    width: fluid(56),
-    height: fluid(56),
+    width: 56,
+    height: 56,
     borderRadius: Radius.medium,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -295,7 +294,7 @@ const styles = StyleSheet.create({
   },
   headerBody: {
     flex: 1,
-    minWidth: fluid(140),
+    minWidth: 140,
     gap: Spacing.half,
   },
   details: {
@@ -313,7 +312,7 @@ const styles = StyleSheet.create({
   },
   ingredientName: {
     flex: 1,
-    minWidth: fluid(120),
+    minWidth: 120,
   },
   stepsBlock: {
     gap: Spacing.one,

@@ -6,7 +6,6 @@ import { ThemedView } from '@/components/themed-view';
 import { Icon } from '@/components/ui/icon';
 import { Motion, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fluid } from '@/lib/fluid';
 
 /**
  * The centered pop-up used by every add/edit form, confirm dialog and picker.
@@ -112,14 +111,14 @@ const styles = StyleSheet.create({
   },
   dialogWrap: {
     width: '100%',
-    maxWidth: fluid(560),
+    maxWidth: 560,
     maxHeight: '88%',
   },
   dialog: {
     borderRadius: Radius.large,
     borderWidth: 1,
     borderStyle: 'dashed',
-    padding: Spacing.three,
+    padding: Spacing.four,
     gap: Spacing.three,
     // Let the dialog shrink to the window and hand the remaining space to the
     // scrolling body, so tall forms still reach their buttons.

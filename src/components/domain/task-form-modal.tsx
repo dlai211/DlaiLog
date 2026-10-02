@@ -10,7 +10,6 @@ import { TimePicker } from '@/components/ui/time-picker';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatRepeatDays, formatShortDate, formatTimeRange } from '@/lib/format';
-import { fluid } from '@/lib/fluid';
 import type { Task, TaskRepeat } from '@/store/types';
 
 export interface TaskFormValues {
@@ -382,8 +381,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   checkbox: {
-    width: fluid(22),
-    height: fluid(22),
+    width: 22,
+    height: 22,
     borderRadius: Radius.small,
     borderWidth: 2,
     alignItems: 'center',
@@ -415,8 +414,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   dayToggle: {
-    width: fluid(34),
-    height: fluid(34),
+    width: 34,
+    height: 34,
     borderRadius: Radius.pill,
     borderWidth: 1,
     alignItems: 'center',

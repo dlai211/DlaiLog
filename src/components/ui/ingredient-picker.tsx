@@ -13,7 +13,6 @@ import {
 import { IngredientPicture } from '@/data/ingredient-images';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
-import { fluid } from '@/lib/fluid';
 
 /**
  * The picture picker that replaced the emoji grid: search by name, then tap a
@@ -162,7 +161,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   tile: {
-    width: fluid(68),
+    width: 68,
     alignItems: 'center',
     gap: Spacing.half,
     paddingVertical: Spacing.one,

@@ -3,7 +3,6 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing, soft } from '@/constants/theme';
-import { fluid } from '@/lib/fluid';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -52,7 +51,10 @@ export function PageHeader({
 
 const styles = StyleSheet.create({
   header: {
-    gap: Spacing.two,
+    gap: Spacing.three,
+    // Space above and below the title bar, so it never crowds the edge.
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.one,
   },
   row: {
     flexDirection: 'row',
@@ -75,8 +77,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
   },
   accentBar: {
-    width: fluid(9),
-    height: fluid(9),
+    width: 9,
+    height: 9,
     borderRadius: Radius.pill,
   },
   action: {

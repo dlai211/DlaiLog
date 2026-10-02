@@ -9,12 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { ScreenTransition } from '@/components/ui/screen-transition';
 import { ThemeSwitch } from '@/components/ui/theme-switch';
-import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, SidebarRailWidth, SidebarWidth, Spacing } from '@/constants/theme';
 import { useHover } from '@/hooks/use-hover';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTheme } from '@/hooks/use-theme';
 import { useWindowWidth } from '@/hooks/use-window-width';
-import { fluid } from '@/lib/fluid';
 
 /** Windows narrower than this switch to the phone-style bottom bar (PRD §2.1). */
 export const WIDE_LAYOUT_MIN_WIDTH = 1000;
@@ -262,12 +261,19 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignItems: 'center',
-    padding: Spacing.four,
+    // Generous breathing room around the whole page, top and bottom included.
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.five,
+    paddingBottom: Spacing.five,
     flexGrow: 1,
   },
   content: {
+    // The column fills the window, stops growing at MaxContentWidth and stays
+    // centred on very wide displays — so nothing clusters to one side.
+    flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
+    alignSelf: 'center',
   },
   sidebar: {
     padding: Spacing.three,
@@ -286,10 +292,10 @@ const styles = StyleSheet.create({
     }),
   },
   sidebarExpanded: {
-    width: fluid(236),
+    width: SidebarWidth,
   },
   sidebarRail: {
-    width: fluid(78),
+    width: SidebarRailWidth,
     alignItems: 'center',
   },
   brandRow: {
@@ -314,8 +320,8 @@ const styles = StyleSheet.create({
     padding: Spacing.one,
   },
   brandMark: {
-    width: fluid(28),
-    height: fluid(28),
+    width: 28,
+    height: 28,
     borderRadius: Radius.small,
     borderWidth: 1,
     alignItems: 'center',

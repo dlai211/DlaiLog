@@ -5,7 +5,6 @@ import { ThemedText } from '@/components/themed-text';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fluid } from '@/lib/fluid';
 
 /** Every empty list says something friendly instead of showing nothing. */
 export function EmptyState({
@@ -47,8 +46,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
   },
   badge: {
-    width: fluid(52),
-    height: fluid(52),
+    width: 52,
+    height: 52,
     borderRadius: 26,
     borderWidth: 1,
     borderStyle: 'dashed',

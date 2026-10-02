@@ -16,7 +16,6 @@
 
 import { Platform } from 'react-native';
 
-import { fluid, fluidMax } from '@/lib/fluid';
 
 export const Colors = {
   light: {
@@ -171,34 +170,48 @@ export const Fonts = Platform.select({
 });
 
 /**
- * Spacing and radii scale with the window (see lib/fluid): the numbers are the
- * design values at a 1440px-wide window, written as CSS clamps so everything
- * keeps its proportions at any width or browser zoom. `oneHalf` and `twoHalf`
- * are the in-between steps the layouts use (6px and 10px at design width).
+ * The spacing scale, in plain numbers.
+ *
+ * These are deliberately fixed: React Native only accepts real numbers for
+ * sizes (a CSS string like `'1.2vw'` crashes Android with "String cannot be
+ * cast to Double"), and a layout that shrinks with the window leaves a small
+ * cluster of content beside a large empty one. Responsiveness is handled where
+ * it belongs instead — the shell keeps a fixed sidebar and a centred, capped
+ * content column, and rows wrap when they run out of room.
+ *
+ * `oneHalf` and `twoHalf` are the in-between steps the layouts use (6 and 10).
  */
 export const Spacing = {
-  half: fluid(2),
-  one: fluid(4),
-  oneHalf: fluid(6),
-  two: fluid(8),
-  twoHalf: fluid(10),
-  three: fluid(16),
-  four: fluid(24),
-  five: fluid(32),
-  six: fluid(64),
+  half: 2,
+  one: 4,
+  oneHalf: 6,
+  two: 8,
+  twoHalf: 10,
+  three: 16,
+  four: 24,
+  five: 32,
+  six: 64,
 } as const;
 
 export const Radius = {
-  small: fluid(6),
-  medium: fluid(10),
-  large: fluid(16),
-  /** Fully round — a pill's radius never needs to scale. */
+  small: 6,
+  medium: 10,
+  large: 16,
+  /** Fully round. */
   pill: 999,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-/** The reading column: it grows with the window, but never past a comfortable line length. */
-export const MaxContentWidth = fluidMax(1180, 92);
+
+/**
+ * The width the content column stops growing at. Past this the column stays
+ * centred instead of stretching text lines across a very wide display.
+ */
+export const MaxContentWidth = 1400;
+
+/** The sidebar's width, open and compacted. Fixed, so the labels stay legible. */
+export const SidebarWidth = 248;
+export const SidebarRailWidth = 84;
 
 /** Shared motion values, so every transition in the app feels like one system. */
 export const Motion = {

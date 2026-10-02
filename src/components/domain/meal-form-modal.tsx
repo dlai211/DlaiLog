@@ -17,7 +17,6 @@ import { pickPhotoAsDataUrl } from '@/lib/photo';
 import { findInventoryItem, ingredientNameSuggestions, normalizeItemName } from '@/store/selectors';
 import { guessIngredientTile } from '@/data/ingredient-images';
 import type { Ingredient, Meal, MealIngredient, Purchase, Unit } from '@/store/types';
-import { fluid } from '@/lib/fluid';
 
 export interface MealFormValues {
   name: string;
@@ -326,7 +325,7 @@ const styles = StyleSheet.create({
   },
   photo: {
     width: '100%',
-    height: fluid(180),
+    height: 180,
     borderRadius: Radius.medium,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -334,7 +333,7 @@ const styles = StyleSheet.create({
   },
   photoPlaceholder: {
     width: '100%',
-    height: fluid(120),
+    height: 120,
     borderRadius: Radius.medium,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -363,15 +362,15 @@ const styles = StyleSheet.create({
   },
   ingredientName: {
     flex: 3,
-    minWidth: fluid(140),
+    minWidth: 140,
   },
   ingredientAmount: {
     flex: 1,
-    minWidth: fluid(70),
+    minWidth: 70,
   },
   ingredientUnit: {
     flex: 1,
-    minWidth: fluid(80),
+    minWidth: 80,
   },
   removeButton: {
     padding: Spacing.oneHalf,

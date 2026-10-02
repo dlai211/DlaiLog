@@ -40,7 +40,6 @@ import {
 } from '@/store/selectors';
 import type { Task } from '@/store/types';
 import { useToast } from '@/components/ui/toast';
-import { fluid } from '@/lib/fluid';
 
 /**
  * The dashboard (PRD §3): today's plan, quick notes, and one live summary of
@@ -122,7 +121,7 @@ export default function HomeScreen() {
   const shoppingOpen = shoppingCounts(db.shopping).open;
 
   return (
-    <>
+    <View style={styles.page}>
       <PageHeader
         title="Home"
         subtitle={formatLongDate(today)}
@@ -392,7 +391,7 @@ export default function HomeScreen() {
           setPendingDelete(null);
         }}
       />
-    </>
+    </View>
   );
 }
 
@@ -409,35 +408,42 @@ function changeColor(summary: ReturnType<typeof homeSummary>): 'dangerText' | 's
 }
 
 const styles = StyleSheet.create({
-  statRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
+  // The dashboard reads as three bands — header, the numbers, the widgets —
+  // with room to breathe between them.
+  page: {
+    gap: Spacing.five,
   },
-  grid: {
+  statRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.three,
   },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    // Cards keep their natural height instead of stretching to fill an empty row.
+    alignItems: 'flex-start',
+    gap: Spacing.four,
+  },
   planCard: {
     flexGrow: 2,
     flexBasis: 420,
-    minWidth: fluid(280),
+    minWidth: 280,
   },
   notesCard: {
     flexGrow: 1,
     flexBasis: 300,
-    minWidth: fluid(260),
+    minWidth: 260,
   },
   summaryCard: {
     flexGrow: 1,
     flexBasis: 300,
-    minWidth: fluid(260),
+    minWidth: 260,
   },
   watchCard: {
     flexGrow: 1,
     flexBasis: '100%',
-    minWidth: fluid(260),
+    minWidth: 260,
   },
   section: {
     gap: Spacing.one,

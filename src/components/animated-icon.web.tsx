@@ -3,7 +3,6 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { Keyframe, Easing } from 'react-native-reanimated';
 
 import classes from './animated-icon.module.css';
-import { fluid } from '@/lib/fluid';
 const DURATION = 300;
 
 export function AnimatedSplashOverlay() {
@@ -86,24 +85,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   glow: {
-    width: fluid(201),
-    height: fluid(201),
+    width: 201,
+    height: 201,
     position: 'absolute',
   },
   iconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: fluid(128),
-    height: fluid(128),
+    width: 128,
+    height: 128,
   },
   image: {
     position: 'absolute',
-    width: fluid(76),
-    height: fluid(71),
+    width: 76,
+    height: 71,
   },
   background: {
-    width: fluid(128),
-    height: fluid(128),
+    width: 128,
+    height: 128,
     position: 'absolute',
   },
 });

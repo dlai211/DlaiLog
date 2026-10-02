@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Radius, Spacing, soft } from '@/constants/theme';
-import { fluid } from '@/lib/fluid';
 import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -69,7 +68,7 @@ const styles = StyleSheet.create({
   tile: {
     flexGrow: 1,
     flexBasis: 180,
-    minWidth: fluid(180),
+    minWidth: 180,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
@@ -79,8 +78,8 @@ const styles = StyleSheet.create({
     padding: Spacing.two,
   },
   iconChip: {
-    width: fluid(38),
-    height: fluid(38),
+    width: 38,
+    height: 38,
     borderRadius: Radius.medium,
     alignItems: 'center',
     justifyContent: 'center',

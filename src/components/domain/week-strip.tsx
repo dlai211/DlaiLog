@@ -7,7 +7,6 @@ import { parseKey, todayKey, weekStrip } from '@/lib/dates';
 import { WEEKDAY_LETTERS } from '@/lib/format';
 import { openOccurrenceCounts } from '@/store/selectors';
 import type { Task } from '@/store/types';
-import { fluid } from '@/lib/fluid';
 
 /**
  * Seven days of the current week with a dot per day that has open tasks.
@@ -83,8 +82,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   dot: {
-    width: fluid(5),
-    height: fluid(5),
+    width: 5,
+    height: 5,
     borderRadius: 3,
   },
 });

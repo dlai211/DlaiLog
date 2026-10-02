@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { fluid } from '@/lib/fluid';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
@@ -117,26 +116,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   glow: {
-    width: fluid(201),
-    height: fluid(201),
+    width: 201,
+    height: 201,
     position: 'absolute',
   },
   iconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: fluid(128),
-    height: fluid(128),
+    width: 128,
+    height: 128,
     zIndex: 100,
   },
   image: {
-    width: fluid(76),
-    height: fluid(71),
+    width: 76,
+    height: 71,
   },
   background: {
     borderRadius: 40,
     experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
-    width: fluid(128),
-    height: fluid(128),
+    width: 128,
+    height: 128,
     position: 'absolute',
   },
   splashOverlay: {

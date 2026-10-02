@@ -565,13 +565,23 @@ Acceptance (all ticked, verified by tests and the browser suite):
 - [x] Tiles without a photograph keep their drawn picture; a tile with neither gets a neutral one
 - [x] New test: no photograph can exist without a tile to belong to
 
-## 23. Sizing that keeps its proportions
+## 23. Sizing and responsiveness
 
-- [x] Spacing, type, icons, pictures, radii and the reading column are written as CSS
-      `clamp(min, share-of-width, max)` (see `src/lib/fluid.ts`), so the whole app keeps the same
-      proportions at any window width — and browser zoom no longer reshapes the layout
-- [x] SVG icons and picture tiles scale through `useUiScale`, the same curve as the CSS
-- [x] The shell simply hides the sidebar below 1000px; the reading column grows with the window
+> **Superseded (see §28).** An earlier version of this section scaled type, icons and spacing with
+> the window (CSS `clamp()` values). That is what crashed the Android app, and it left the content
+> clustered on the left of a wide display. Sizes are fixed numbers again, and responsiveness is a
+> matter of layout — a fixed sidebar, a centred column with a maximum width, and rows that wrap.
+
+- [x] Every size — spacing, type, icons, pictures, radii — is a **plain number**. React Native
+      rejects CSS strings for dimensions (`'1.2vw'` crashes Android with "String cannot be cast to
+      Double"), so none are used anywhere; a test scans the whole source tree to keep it that way
+      (`src/constants/react-native-compat.test.ts`).
+- [x] The sidebar is a **fixed 248px** (rail: 84px), so the navigation labels are always legible.
+- [x] The content column **fills the window**, stops growing at **1400px** and is centred beyond
+      that, so a wide display gets a centred column rather than a cluster on the left.
+- [x] Summary tiles and widget rows **wrap** with flexbox and grow to fill the space they are
+      given, so nothing is squashed on the right.
+- [x] Below 1000px the shell switches to the phone-style bottom bar (PRD §2.1).
 
 ## 24. The sidebar
 
@@ -616,3 +626,28 @@ Acceptance (all ticked, verified by tests and the browser suite):
 - New stored fields: `Task.repeat`, `Task.doneDates`, `Task.endTime`, `MealIngredient.imageKey`,
   and the appearance/sidebar/seed preferences (`dlailog:theme`, `dlailog:sidebar`,
   `dlailog:no-seed`).
+
+## 28. Dashboard layout, spacing and React Native compatibility (fix)
+
+The Android crash (`fontSize` … `java.lang.String cannot be cast to java.lang.Double`) came from
+this app, and so did the layout it was wrapped in. Both are fixed:
+
+- [x] **No CSS units anywhere.** Every `fontSize`, `lineHeight`, `borderRadius`, `padding`,
+      `margin` and dimension is a raw number. The window-scaling helpers (`clamp()` values,
+      `useUiScale`) are deleted, along with their tests — the feature is gone, not hidden.
+- [x] **A guard test** walks every source file and fails if a CSS unit or function (`px`, `vw`,
+      `vh`, `rem`, `clamp(`, `calc(`) appears inside a style — proven to fail by planting one.
+      `boxShadow` is the single, documented exception (a shadow definition, not a dimension).
+- [x] **Sidebar:** a stable 248px (compact rail: 84px) — navigation stays clean and legible at any
+      window size.
+- [x] **Dashboard container:** `flex: 1`, `width: '100%'`, `maxWidth: 1400`, `alignSelf: 'center'`,
+      so it expands to fill the right-hand side and centres on very wide displays.
+- [x] **Columns wrap** (flexbox `wrap` + `flexGrow`) and the four metric tiles share the row evenly.
+- [x] **Vertical breathing room:** 32px above and below the page inside the scroll area, 32px
+      between the header, the metric tiles and the widget bands, 24px between widget rows, and
+      cards at 18px internal padding — content no longer sits against a card's edge.
+- [x] The header bar has its own top and bottom padding, and cards keep their natural height
+      instead of stretching to fill an empty row.
+- [x] Verified in a browser at 2400, 1600 and 1100 wide: sidebar 248px at all three; the content
+      column measured 1400 / 1304 / 804; no CSS-function value left in the DOM; no console
+      warnings.

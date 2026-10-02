@@ -36,7 +36,6 @@ import {
   type ShoppingSuggestion,
 } from '@/store/selectors';
 import type { Ingredient, ShoppingItem } from '@/store/types';
-import { fluid } from '@/lib/fluid';
 
 type Tab = 'stock' | 'shopping';
 
@@ -506,9 +505,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   search: {
-    minWidth: fluid(200),
+    minWidth: 200,
     flexGrow: 1,
-    maxWidth: fluid(320),
+    maxWidth: 320,
   },
   stockRow: {
     flexDirection: 'row',
@@ -519,7 +518,7 @@ const styles = StyleSheet.create({
   },
   stockBody: {
     flex: 1,
-    minWidth: fluid(150),
+    minWidth: 150,
     gap: Spacing.half,
   },
   stockNameRow: {
@@ -540,7 +539,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   quantity: {
-    minWidth: fluid(64),
+    minWidth: 64,
     textAlign: 'center',
   },
   shoppingGrid: {
@@ -552,7 +551,7 @@ const styles = StyleSheet.create({
   shoppingColumn: {
     flexGrow: 1,
     flexBasis: 300,
-    minWidth: fluid(260),
+    minWidth: 260,
   },
   suggestionList: {
     gap: Spacing.two,
@@ -568,7 +567,7 @@ const styles = StyleSheet.create({
   cart: {
     flexGrow: 1,
     flexBasis: 300,
-    minWidth: fluid(260),
+    minWidth: 260,
     borderWidth: 2,
     borderStyle: 'dashed',
     borderRadius: Radius.large,

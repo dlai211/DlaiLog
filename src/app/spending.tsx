@@ -17,7 +17,6 @@ import { PageHeader } from '@/components/ui/page-header';
 import { RowActions } from '@/components/ui/row-actions';
 import { Select } from '@/components/ui/select';
 import { Radius, Spacing } from '@/constants/theme';
-import { fluid } from '@/lib/fluid';
 import { CATEGORY_META, CATEGORY_ORDER } from '@/data/categories';
 import { IngredientImage } from '@/data/ingredient-images';
 import { useScreenAccent, useTheme } from '@/hooks/use-theme';
@@ -353,11 +352,11 @@ const styles = StyleSheet.create({
   },
   rowItem: {
     flex: 1,
-    minWidth: fluid(180),
+    minWidth: 180,
   },
   breakdownBar: {
     flexDirection: 'row',
-    height: fluid(14),
+    height: 14,
     borderRadius: Radius.pill,
     overflow: 'hidden',
     backgroundColor: 'transparent',
@@ -373,8 +372,8 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   legendDot: {
-    width: fluid(10),
-    height: fluid(10),
+    width: 10,
+    height: 10,
     borderRadius: Radius.pill,
   },
   dayHeader: {

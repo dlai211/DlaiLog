@@ -1,6 +1,5 @@
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { useUiScale } from '@/hooks/use-ui-scale';
 
 /**
  * The app's icon set: simple, monochrome line icons drawn as SVG so they take
@@ -158,19 +157,15 @@ export function Icon({
   testID?: string;
 }) {
   const shape = ICONS[name];
-  // Icons keep their proportion to the text beside them as the window changes.
-  const scale = useUiScale();
-  const drawn = Math.round(size * scale);
-  const drawnStroke = Math.round(strokeWidth * scale * 100) / 100;
 
   return (
-    <Svg testID={testID} width={drawn} height={drawn} viewBox="0 0 24 24">
+    <Svg testID={testID} width={size} height={size} viewBox="0 0 24 24">
       {shape.paths?.map((path) => (
         <Path
           key={path}
           d={path}
           stroke={color}
-          strokeWidth={drawnStroke}
+          strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"
@@ -183,7 +178,7 @@ export function Icon({
           cy={cy}
           r={r}
           stroke={color}
-          strokeWidth={drawnStroke}
+          strokeWidth={strokeWidth}
           fill="none"
         />
       ))}
