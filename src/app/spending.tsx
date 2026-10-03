@@ -16,9 +16,10 @@ import { FormField } from '@/components/ui/form-field';
 import { PageHeader } from '@/components/ui/page-header';
 import { RowActions } from '@/components/ui/row-actions';
 import { Select } from '@/components/ui/select';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { CATEGORY_META, CATEGORY_ORDER } from '@/data/categories';
-import { useTheme } from '@/hooks/use-theme';
+import { IngredientImage } from '@/data/ingredient-images';
+import { useScreenAccent, useTheme } from '@/hooks/use-theme';
 import { currentMonthKey, shiftMonthKey } from '@/lib/dates';
 import { formatAmountUnit, formatLongDate, formatMoney, formatMonthKey, formatUnitPrice } from '@/lib/format';
 import { useData } from '@/store/data-provider';
@@ -26,14 +27,16 @@ import {
   filterPurchases,
   groupPurchasesByDay,
   monthSummary,
+  round2,
   storesInUse,
   type CategoryFilter,
 } from '@/store/selectors';
-import type { Purchase } from '@/store/types';
+import type { Category, Purchase } from '@/store/types';
 
 const ALL = 'all';
 
 export default function SpendingScreen() {
+  const accent = useScreenAccent('spending');
   const { db, addPurchase, updatePurchase, deletePurchase } = useData();
   const theme = useTheme();
   const router = useRouter();
@@ -55,6 +58,15 @@ export default function SpendingScreen() {
   const filtered = filterPurchases(db.purchases, { month, category, store, search });
   const groups = groupPurchasesByDay(filtered);
   const summary = monthSummary(db.purchases, month);
+  // What share of the month went on each category — the breakdown bar.
+  const monthTotals = CATEGORY_ORDER.map((id) => ({
+    category: id,
+    total: round2(
+      db.purchases
+        .filter((purchase) => purchase.date.startsWith(month) && purchase.category === id)
+        .reduce((sum, purchase) => sum + purchase.totalPrice, 0)
+    ),
+  })).filter((entry) => entry.total > 0);
   const stores = storesInUse(db.purchases);
 
   const hasAnyPurchase = db.purchases.length > 0;
@@ -91,6 +103,7 @@ export default function SpendingScreen() {
     <>
       <PageHeader
         title="Spending"
+        accent={accent}
         subtitle="Everything you buy, and where"
         action={
           <Button
@@ -180,9 +193,39 @@ export default function SpendingScreen() {
         }${summary.topStore ? ` · Top store: ${summary.topStore}` : ''}`}
       </ThemedText>
 
+      {summary.total > 0 ? (
+        <Card testID="spending-breakdown">
+          <ThemedText type="smallBold">Where it went</ThemedText>
+          <View style={styles.breakdownBar}>
+            {categoryShares(monthTotals).map((share) => (
+              <View
+                key={share.category}
+                testID={`spending-share-${share.category}`}
+                style={{
+                  width: `${share.percent}%`,
+                  backgroundColor: theme[CATEGORY_META[share.category].colorKey],
+                }}
+              />
+            ))}
+          </View>
+          <View style={styles.breakdownLegend}>
+            {categoryShares(monthTotals).map((share) => (
+              <View key={share.category} style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: theme[CATEGORY_META[share.category].colorKey] }]}
+                />
+                <ThemedText type="caption" themeColor="textSecondary">
+                  {`${CATEGORY_META[share.category].label} ${formatMoney(share.total)}`}
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+        </Card>
+      ) : null}
+
       {groups.length === 0 ? (
         <EmptyState
-          emoji="🧾"
+          icon="spending"
           message={
             hasAnyPurchase
               ? 'No purchases match your filters.'
@@ -246,7 +289,12 @@ function PurchaseRow({
 
   return (
     <View style={styles.purchaseRow} testID={`purchase-row-${purchase.id}`}>
-      <ThemedText style={styles.purchaseIcon}>{purchase.icon}</ThemedText>
+      <IngredientImage
+        imageKey={purchase.imageKey}
+        icon={purchase.icon}
+        size={36}
+        testID={`purchase-picture-${purchase.id}`}
+      />
 
       <Pressable
         testID={`purchase-open-${purchase.id}`}
@@ -306,6 +354,28 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 180,
   },
+  breakdownBar: {
+    flexDirection: 'row',
+    height: 14,
+    borderRadius: Radius.pill,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  breakdownLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: Radius.pill,
+  },
   dayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -334,3 +404,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
 });
+
+/** The month's spending split across categories, as percentages of the total. */
+function categoryShares(entries: { category: Category; total: number }[]) {
+  const total = entries.reduce((sum, entry) => sum + entry.total, 0);
+  return entries.map((entry) => ({
+    ...entry,
+    percent: total > 0 ? (entry.total / total) * 100 : 0,
+  }));
+}

@@ -44,6 +44,9 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   );
 }
 
+// Fixed type sizes. Everything here must be a plain number: React Native
+// rejects CSS strings for fontSize/lineHeight (Android throws
+// "String cannot be cast to Double").
 const styles = StyleSheet.create({
   small: {
     fontSize: 14,

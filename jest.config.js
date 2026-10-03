@@ -15,6 +15,10 @@ module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
   moduleNameMapper: {
+    // Must come before the preset's `@/*` rule: tsconfig (and the bundler)
+    // also map `@/assets/*` to the project's own assets folder, and Jest's
+    // mapper takes the first pattern that matches.
+    '^@/assets/(.*)$': '<rootDir>/assets/$1',
     ...(preset.moduleNameMapper ?? {}),
     '\\.(css|sass|scss)$': '<rootDir>/src/test/style-mock.js',
   },

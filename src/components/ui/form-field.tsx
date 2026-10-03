@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import { StyleSheet, TextInput, View, type KeyboardTypeOptions } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-/** A labelled text/number input with an optional error line (PRD §2.3). */
+/** A labelled text/number input with an optional error line. */
 export function FormField({
   label,
   value,
@@ -31,6 +32,9 @@ export function FormField({
   onSubmitEditing?: () => void;
 }) {
   const theme = useTheme();
+  const [focused, setFocused] = useState(false);
+
+  const borderColor = error ? theme.danger : focused ? theme.borderStrong : theme.border;
 
   return (
     <View style={styles.field}>
@@ -44,6 +48,8 @@ export function FormField({
         testID={testID}
         value={value}
         onChangeText={onChangeText}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         placeholder={placeholder}
         placeholderTextColor={theme.textTertiary}
         keyboardType={keyboardType}
@@ -53,10 +59,11 @@ export function FormField({
         style={[
           styles.input,
           multiline && styles.inputMultiline,
+          focused && styles.focused,
           {
             color: theme.text,
-            backgroundColor: theme.background,
-            borderColor: error ? theme.danger : theme.border,
+            backgroundColor: theme.backgroundElement,
+            borderColor,
           },
         ]}
       />
@@ -75,14 +82,19 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.two,
+    borderRadius: Radius.medium,
+    paddingHorizontal: Spacing.twoHalf,
     paddingVertical: Spacing.two,
     fontSize: 14,
     minHeight: 40,
   },
+  focused: {
+    borderWidth: 2,
+    paddingHorizontal: Spacing.twoHalf,
+    paddingVertical: Spacing.two,
+  },
   inputMultiline: {
-    minHeight: 72,
+    minHeight: 84,
     textAlignVertical: 'top',
   },
 });

@@ -10,7 +10,8 @@ import { LineChart, Sparkline } from '@/components/ui/line-chart';
 import { PageHeader } from '@/components/ui/page-header';
 import { Spacing } from '@/constants/theme';
 import { CATEGORY_META, CATEGORY_ORDER } from '@/data/categories';
-import { useTheme } from '@/hooks/use-theme';
+import { IngredientImage } from '@/data/ingredient-images';
+import { useScreenAccent, useTheme } from '@/hooks/use-theme';
 import {
   formatAmountUnit,
   formatMoney,
@@ -23,6 +24,7 @@ import { categoryCounts, groceryItems, type GroceryItem } from '@/store/selector
 import type { Category } from '@/store/types';
 
 export default function GroceryScreen() {
+  const accent = useScreenAccent('grocery');
   const { db } = useData();
   const theme = useTheme();
   const router = useRouter();
@@ -44,6 +46,7 @@ export default function GroceryScreen() {
     <>
       <PageHeader
         title="Grocery Tracker"
+        accent={accent}
         subtitle="Built automatically from your Spending entries — nothing to add here"
       />
 
@@ -75,12 +78,12 @@ export default function GroceryScreen() {
 
       {!hasAnyItems ? (
         <EmptyState
-          emoji="🛒"
+          icon="cart"
           message="No items yet — log a purchase in Spending and it appears here automatically."
         />
       ) : visibleItems.length === 0 ? (
         <EmptyState
-          emoji="🔍"
+          icon="search"
           message={query ? 'No items match your search.' : `Nothing in ${CATEGORY_META[category].label} yet.`}
         />
       ) : (
@@ -123,7 +126,7 @@ function GroceryItemCard({
         accessibilityState={{ expanded }}
         onPress={onToggle}
         style={styles.cardHeader}>
-        <ThemedText style={styles.icon}>{item.icon}</ThemedText>
+        <IngredientImage imageKey={item.imageKey} icon={item.icon} size={36} />
 
         <View style={styles.cardBody}>
           <ThemedText type="smallBold" testID={`grocery-name-${item.key}`}>

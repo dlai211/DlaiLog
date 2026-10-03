@@ -51,25 +51,32 @@ export function MonthGrid({
             const isSelected = selectedKey === cell.key;
             const isToday = today === cell.key;
             return (
-              <Pressable
+              <View
                 key={cell.key}
-                testID={`${testID}-day-${cell.key}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                onPress={onSelectDay ? () => onSelectDay(cell.key) : undefined}
                 style={[
                   styles.cell,
                   { minHeight: cellMinHeight, borderColor: theme.border },
                   isSelected && { backgroundColor: theme.backgroundSelected },
                   isToday && { borderColor: theme.primary, borderWidth: 2 },
                 ]}>
-                <ThemedText
-                  type={isToday || isSelected ? 'smallBold' : 'small'}
-                  themeColor={cell.inMonth ? (isToday ? 'primary' : 'text') : 'textTertiary'}>
-                  {cell.dayNumber}
-                </ThemedText>
+                {/* Only the day number is a real button: the cell also holds
+                    task chips (buttons), and buttons may not nest. */}
+                <Pressable
+                  testID={`${testID}-day-${cell.key}`}
+                  accessibilityRole={onSelectDay ? 'button' : undefined}
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={`Open day ${cell.key}`}
+                  disabled={!onSelectDay}
+                  onPress={onSelectDay ? () => onSelectDay(cell.key) : undefined}
+                  style={styles.dayNumber}>
+                  <ThemedText
+                    type={isToday || isSelected ? 'smallBold' : 'small'}
+                    themeColor={cell.inMonth ? (isToday ? 'primary' : 'text') : 'textTertiary'}>
+                    {cell.dayNumber}
+                  </ThemedText>
+                </Pressable>
                 {renderDay ? <View style={styles.cellContent}>{renderDay(cell)}</View> : null}
-              </Pressable>
+              </View>
             );
           })}
         </View>
@@ -98,6 +105,11 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     padding: Spacing.one,
     gap: Spacing.half,
+  },
+  dayNumber: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.one,
+    borderRadius: Spacing.one,
   },
   cellContent: {
     gap: Spacing.half,

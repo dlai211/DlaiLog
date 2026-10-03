@@ -16,16 +16,25 @@ import { MonthGrid } from '@/components/ui/month-grid';
 import { PageHeader } from '@/components/ui/page-header';
 import { Segmented } from '@/components/ui/segmented';
 import { Spacing } from '@/constants/theme';
+import { useScreenAccent, useTheme } from '@/hooks/use-theme';
 import { addDays, monthKeyOf, monthKeyParts, shiftMonthKey, todayKey } from '@/lib/dates';
 import { formatLongDate, formatMonthTitle, truncate } from '@/lib/format';
 import { useData } from '@/store/data-provider';
-import { doneTasksForDay, overdueTasks, tasksForDay, undoneTasksByDay } from '@/store/selectors';
+import {
+  doneOccurrencesForDay,
+  openOccurrencesByDay,
+  openOccurrencesForDay,
+  overdueOccurrences,
+  type TaskOccurrence,
+} from '@/store/selectors';
 import type { Task } from '@/store/types';
 
 const DAY_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export default function TodoScreen() {
-  const { db, addTask, updateTask, deleteTask } = useData();
+  const accent = useScreenAccent('todo');
+  const { db, addTask, updateTask, deleteTask, toggleTaskOn } = useData();
+  const theme = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ date?: string }>();
 
@@ -45,10 +54,10 @@ export default function TodoScreen() {
   const viewMonth = monthOverride ?? monthKeyOf(selectedDate);
   const { year, monthIndex } = monthKeyParts(viewMonth);
 
-  const { timed, anytime } = tasksForDay(db.tasks, selectedDate);
-  const doneToday = doneTasksForDay(db.tasks, selectedDate);
-  const overdue = selectedDate === today ? overdueTasks(db.tasks, today) : [];
-  const monthTasks = undoneTasksByDay(db.tasks, viewMonth);
+  const { timed, anytime } = openOccurrencesForDay(db.tasks, selectedDate);
+  const doneToday = doneOccurrencesForDay(db.tasks, selectedDate);
+  const overdue = selectedDate === today ? overdueOccurrences(db.tasks, today) : [];
+  const monthTasks = openOccurrencesByDay(db.tasks, viewMonth);
   const dayIsEmpty =
     overdue.length === 0 && timed.length === 0 && anytime.length === 0 && doneToday.length === 0;
 
@@ -74,21 +83,19 @@ export default function TodoScreen() {
     setEditing(null);
   };
 
-  const toggleTask = (task: Task) => updateTask(task.id, { done: !task.done });
-
   const confirmDelete = () => {
     if (pendingDelete) deleteTask(pendingDelete.id);
     setPendingDelete(null);
   };
 
-  const renderRow = (task: Task, showDate = false) => (
+  const renderRow = (occurrence: TaskOccurrence, showDate = false) => (
     <TaskRow
-      key={task.id}
-      task={task}
+      key={`${occurrence.task.id}-${occurrence.date}`}
+      occurrence={occurrence}
       showDate={showDate}
-      onToggle={() => toggleTask(task)}
-      onEdit={() => openEdit(task)}
-      onDelete={() => setPendingDelete(task)}
+      onToggle={() => toggleTaskOn(occurrence.task.id, occurrence.date)}
+      onEdit={() => openEdit(occurrence.task)}
+      onDelete={() => setPendingDelete(occurrence.task)}
     />
   );
 
@@ -96,6 +103,7 @@ export default function TodoScreen() {
     <>
       <PageHeader
         title="To-do"
+        accent={accent}
         subtitle="Day and Month views of your tasks"
         action={<Button label="+ New task" variant="primary" testID="new-task" onPress={openNew} />}
       />
@@ -169,7 +177,7 @@ export default function TodoScreen() {
 
           {dayIsEmpty ? (
             <EmptyState
-              emoji="🌤"
+              icon="sun"
               message="Nothing planned — enjoy it."
               hint="Use + New task to add something."
             />
@@ -239,12 +247,13 @@ export default function TodoScreen() {
 
               return (
                 <>
-                  {shown.map((task) => (
+                  {shown.map((occurrence) => (
                     <Chip
-                      key={task.id}
-                      label={truncate(task.title, 16)}
-                      testID={`month-task-${task.id}`}
-                      onPress={() => openEdit(task)}
+                      key={`${occurrence.task.id}-${cell.key}`}
+                      label={truncate(occurrence.task.title, 16)}
+                      color={occurrence.repeating ? theme.accent : undefined}
+                      testID={`month-task-${occurrence.task.id}-${cell.key}`}
+                      onPress={() => openEdit(occurrence.task)}
                     />
                   ))}
                   {extra > 0 ? (
@@ -275,8 +284,12 @@ export default function TodoScreen() {
 
       <ConfirmDialog
         visible={pendingDelete !== null}
-        title="Delete this task?"
-        message={`"${pendingDelete?.title ?? ''}" will be removed. This can't be undone.`}
+        title={pendingDelete?.repeat ? 'Delete this repeating task?' : 'Delete this task?'}
+        message={
+          pendingDelete?.repeat
+            ? `"${pendingDelete.title}" and all of its repeats will be removed from the calendar. This can't be undone.`
+            : `"${pendingDelete?.title ?? ''}" will be removed. This can't be undone.`
+        }
         onCancel={() => setPendingDelete(null)}
         onConfirm={confirmDelete}
       />

@@ -423,7 +423,7 @@ npm run test:e2e    # builds the web app and drives it in a real browser (Playwr
 9. Spending covers **store purchases only** (things bought), not rent/bills/dining — more categories can be added later without rework.
 10. **Backup/Restore button is part of V1.**
 
-**Assumptions (safe to change later):** UI language is English · single user · emoji are the item icons (no image files) · charts are drawn with the lightest technique that renders in the browser (no heavy chart library).
+**Assumptions (safe to change later):** UI language is English · single user · charts are drawn with the lightest technique that renders in the browser (no heavy chart library). *(Superseded in Version 2: item icons are drawn ingredient tiles rather than emoji — see §13.)*
 
 ---
 
@@ -434,3 +434,220 @@ npm run test:e2e    # builds the web app and drives it in a real browser (Playwr
 - Persistence: browser local storage through AsyncStorage (survives refresh/close/restart). One storage layer used by all modules; the backup file is simply this data serialized to JSON.
 - Five existing template screens/components get repurposed (the "Explore" placeholder is removed).
 - Data model (plain): **Task**, **Note**, **Project**, **Purchase** — the Grocery Tracker derives everything from Purchases; Home derives everything from the other four.
+
+---
+
+# Version 2 — design refresh, Meals, Inventory & Shopping
+
+Added 2026-10-01. Everything below is built, committed and verified the same way as V1:
+`npm run verify` (type check + lint + 264 unit/component tests) and `npm run test:e2e`
+(10 real-browser tests, run against the built app).
+
+## 13. Design system
+
+- **Light palette** — cream `#FBF3D5` background, clean white cards, pale sage `#D6DAC8`
+  surfaces, muted sage `#9CAFAA` lines and accents, terracotta rose `#D6A99D`, dark warm text.
+- **Dark palette** — deep green-charcoal surfaces with the same accents lifted for contrast.
+  The app follows the system setting in both.
+- **Borders** — dashed for surfaces that hold things (cards, chips, panels, pop-ups), solid
+  for things you type in or press (inputs, filled buttons, the focused field).
+- **Icons** — the emoji in the navigation, empty states and row actions are replaced by a
+  monochrome SVG line-icon set (`src/components/ui/icon.tsx`); icons take the theme's colour.
+- **Pictures instead of emoji** — the emoji picker is gone. Purchases and pantry rows show a
+  drawn ingredient tile (`src/data/ingredient-images.tsx`, 50 ingredients). Version-1 rows
+  still show their old emoji, and editing one guesses the matching tile from its name.
+- **Motion** — screens fade and lift in on navigation; buttons, cards, chips, nav items and
+  row actions lift, tint or scale on hover.
+
+Acceptance (all ticked, verified by tests and the browser suite):
+- [x] Light and dark palettes; the app follows the system setting
+- [x] Dashed/solid border rule applied consistently; no emoji left in the UI chrome
+- [x] No emoji picker; ingredient pictures searchable by name and keyword
+- [x] Page transitions and hover feedback on every interactive element
+
+## 14. Meals
+
+- A dish has a **name**, an **uploaded finished-dish picture** (shrunk to 800px JPEG before
+  it is stored, because it lives in the same browser storage as everything else), an
+  **ingredients** list (name, amount, unit — with autocomplete from the pantry and purchase
+  history) and **steps to cook**.
+- Each ingredient is labelled against the pantry: **in stock (n)** or **missing**, and
+  "missing · on the shopping list" once it has been queued.
+- **Add missing to shopping list** queues everything the dish needs in one press.
+
+## 15. Inventory
+
+- The pantry is **fed by Spending automatically**: logging a purchase creates the item or
+  adds to its stock; editing a purchase moves the difference; deleting one takes its amount
+  back out (never below zero). When units don't line up, a purchase re-bases the count in
+  its own unit rather than guessing a conversion.
+- Stock is **adjustable in place** with − / + buttons that step sensibly per unit
+  (1 for pieces, 0.5 for litres and kilos, 50 for grams and millilitres).
+- Rows show an **Out of stock** label, the **last bought** date, price and store from Spending,
+  and a cart button that queues the item.
+- Items can also be added, edited and removed by hand; a hand-typed name that loosely matches
+  an existing item adds to that row instead of creating a duplicate.
+
+## 16. Shopping list
+
+- Lives beside the pantry (Inventory → **Shopping list**).
+- Suggestions come from two places: pantry items that **ran out**, and ingredients a **meal**
+  needs — each labelled with where it came from.
+- An item reaches the cart by **dragging its grab handle** onto the cart or pressing its
+  cart button. The cart highlights while something is dragged over it.
+- Items are ticked off as bought, kept until **Clear bought**, removable individually, and
+  the same item is never queued twice while it is still open.
+
+## 17. Saved-name memory (items and stores)
+
+- While typing an item or store name, saved names are offered — prefix matches first, then
+  near-misses that ignore case, spacing and punctuation ("soy-sauce" finds "Soy sauce").
+- A near-miss spelling shows a "You already track …" notice with a one-tap **Use it**.
+- Pantry stock, meal ingredients and purchase history all resolve to the same item, so the
+  same thing can no longer exist twice under slightly different names.
+
+## 18. Fixes made alongside
+
+- [x] Nested `<button>` markup (tappable cards and calendar cells containing real buttons)
+      — invalid HTML that broke hydration; containers are now plain regions and the buttons
+      inside carry the actions
+- [x] `shadow*` style props replaced with `boxShadow` (the deprecation warning is gone)
+- [x] Hydration mismatch (React #418): the pre-rendered page used the narrow shell and the
+      browser the wide one; the shell now renders only after the saved data has loaded
+- [x] Tall pop-ups can scroll again, so their Save buttons are always reachable
+- [x] A new browser test fails on **any** console error or warning, so this class of bug
+      cannot come back unnoticed
+
+## 19. Data, migration and backup
+
+- Records added: **Ingredient** (pantry), **Meal**, **ShoppingItem**; the database is now
+  **version 2**.
+- A version-1 database is migrated forward on load — nothing is lost, the new lists start empty.
+- Version-1 **backup files still restore**, and are migrated on the way in.
+- The backup panel now reports how much of the browser's storage the data is using.
+
+---
+
+# Version 3 — recurring work, your own pictures, and a livelier app
+
+## 20. Appearance: System / Light / Dark
+
+- [x] A three-way switch — **System** (the default: follow the computer), **Light**, **Dark**
+- [x] It sits at the foot of the sidebar, and in the Backup & Restore dialog on narrow windows
+- [x] The choice is remembered in the browser, next to the data, and survives a refresh
+- [x] Dark mode is a full second palette, not an inversion: deep green-charcoal surfaces with
+      the same accents lifted just enough to read
+
+## 21. Repeating tasks
+
+- [x] A task can **repeat weekly** on any set of days — the worked example, every Tuesday and
+      Thursday, 12:00–14:00, until a chosen date, is exactly what the form builds
+- [x] The form spells the pattern back in words before saving ("Every Tue & Thu · 12:00 – 2:00 pm
+      · until Dec 18") and refuses a pattern with no days on it
+- [x] Every occurrence shows in the Day view and as a chip in the Month view, and the week strip's
+      dots count occurrences rather than records
+- [x] Each day is ticked off on its own: finishing Tuesday's class leaves Thursday's waiting
+- [x] A repeating task never appears in **Overdue** — a missed Tuesday is not a debt; the pattern
+      simply comes round again
+- [x] Deleting one warns that every occurrence goes with it
+- [x] Optional end time as well as a start time (a real time *range*, shown as "12:00 – 2:00 pm")
+
+## 22. Your own ingredient pictures
+
+- [x] 33 photographs the user supplied, prepared by `node scripts/prepare-ingredient-images.mjs`
+      (squared, fitted on white, 256×256 — 11 MB of originals become 325 KB in `assets/ingredients/`)
+- [x] They are bundled with the app: no internet, nothing downloaded at runtime
+- [x] The library grew to 68 tiles, adding the Chinese-market ingredients the photographs cover
+      (bok choy, choy sum, ong choy, chinese chives, bitter melon, bao, dumplings, pork belly,
+      pork ribs, steak, minced beef, chicken thigh, hot sauce, oyster sauce, green onions…)
+- [x] Pictures follow the same key as the pantry and purchases, so a photo added once appears
+      everywhere that item does
+- [x] Tiles without a photograph keep their drawn picture; a tile with neither gets a neutral one
+- [x] New test: no photograph can exist without a tile to belong to
+
+## 23. Sizing and responsiveness
+
+> **Superseded (see §28).** An earlier version of this section scaled type, icons and spacing with
+> the window (CSS `clamp()` values). That is what crashed the Android app, and it left the content
+> clustered on the left of a wide display. Sizes are fixed numbers again, and responsiveness is a
+> matter of layout — a fixed sidebar, a centred column with a maximum width, and rows that wrap.
+
+- [x] Every size — spacing, type, icons, pictures, radii — is a **plain number**. React Native
+      rejects CSS strings for dimensions (`'1.2vw'` crashes Android with "String cannot be cast to
+      Double"), so none are used anywhere; a test scans the whole source tree to keep it that way
+      (`src/constants/react-native-compat.test.ts`).
+- [x] The sidebar is a **fixed 248px** (rail: 84px), so the navigation labels are always legible.
+- [x] The content column **fills the window**, stops growing at **1400px** and is centred beyond
+      that, so a wide display gets a centred column rather than a cluster on the left.
+- [x] Summary tiles and widget rows **wrap** with flexbox and grow to fill the space they are
+      given, so nothing is squashed on the right.
+- [x] Below 1000px the shell switches to the phone-style bottom bar (PRD §2.1).
+
+## 24. The sidebar
+
+- [x] Order, top to bottom: **Home, To-do, Projects, Meals, Inventory, Spending, Grocery**
+- [x] A button at its top-right compacts it to a rail that keeps only the logo and the icons
+- [x] Hovering the rail opens it for as long as the pointer is on it, so the labels are always
+      one hover away; clicking the button again pins it open
+- [x] The choice is remembered across reloads
+
+## 25. Example data
+
+- [x] A brand-new install opens with a working example: three weeks of shopping with prices that
+      moved, a pantry with three things run out, three dishes with their ingredients and steps,
+      four projects, a week of tasks including the repeating class, and notes
+- [x] It is written **only** into a completely empty store, so it can never overwrite real data
+- [x] Backup & Restore also offers **Load example data** and **Erase everything**; erasing is
+      remembered, so the example data does not come back on reload
+- [x] Tests set `EXPO_PUBLIC_DLAILOG_NO_SEED=1` (and the browser tests set `dlailog:no-seed`),
+      so every test still controls its own data
+
+## 26. More colour, more design
+
+- [x] A wider accent palette (`Accents`) in the same earthy family: sage, mint, rose, bloom,
+      clay, sand, olive, sky, plum — each with a dark-mode version
+- [x] One accent per screen: the title pill and rule at the top of every page wears it
+- [x] Home gained an at-a-glance row — four tiles, one number per module, each in that module's
+      colour, each a shortcut to its screen
+- [x] Projects: progress bars and status chips coloured by state (mint finished, clay moving,
+      sky not started)
+- [x] Inventory: a stock-level bar under each item, in the item's category colour, empty when
+      the item has run out
+- [x] Spending: a "Where it went" bar splitting the month across the three categories
+- [x] Meals: in-stock / missing chips now wear the palette's mint and rose
+- [x] The last emoji in the interface (the date picker's calendar glyph) is gone
+
+## 27. Data, migration and backup (Version 3)
+
+- The database is now **version 3**. Version 2 databases migrate forward on load; the new task
+  fields are optional, so nothing is rewritten.
+- **Version 2 backup files still restore** (the header check accepts 1, 2 and the current
+  version), and are migrated on the way in.
+- New stored fields: `Task.repeat`, `Task.doneDates`, `Task.endTime`, `MealIngredient.imageKey`,
+  and the appearance/sidebar/seed preferences (`dlailog:theme`, `dlailog:sidebar`,
+  `dlailog:no-seed`).
+
+## 28. Dashboard layout, spacing and React Native compatibility (fix)
+
+The Android crash (`fontSize` … `java.lang.String cannot be cast to java.lang.Double`) came from
+this app, and so did the layout it was wrapped in. Both are fixed:
+
+- [x] **No CSS units anywhere.** Every `fontSize`, `lineHeight`, `borderRadius`, `padding`,
+      `margin` and dimension is a raw number. The window-scaling helpers (`clamp()` values,
+      `useUiScale`) are deleted, along with their tests — the feature is gone, not hidden.
+- [x] **A guard test** walks every source file and fails if a CSS unit or function (`px`, `vw`,
+      `vh`, `rem`, `clamp(`, `calc(`) appears inside a style — proven to fail by planting one.
+      `boxShadow` is the single, documented exception (a shadow definition, not a dimension).
+- [x] **Sidebar:** a stable 248px (compact rail: 84px) — navigation stays clean and legible at any
+      window size.
+- [x] **Dashboard container:** `flex: 1`, `width: '100%'`, `maxWidth: 1400`, `alignSelf: 'center'`,
+      so it expands to fill the right-hand side and centres on very wide displays.
+- [x] **Columns wrap** (flexbox `wrap` + `flexGrow`) and the four metric tiles share the row evenly.
+- [x] **Vertical breathing room:** 32px above and below the page inside the scroll area, 32px
+      between the header, the metric tiles and the widget bands, 24px between widget rows, and
+      cards at 18px internal padding — content no longer sits against a card's edge.
+- [x] The header bar has its own top and bottom padding, and cards keep their natural height
+      instead of stretching to fill an empty row.
+- [x] Verified in a browser at 2400, 1600 and 1100 wide: sidebar 248px at all three; the content
+      column measured 1400 / 1304 / 804; no CSS-function value left in the DOM; no console
+      warnings.

@@ -136,7 +136,9 @@ describe('Spending screen', () => {
       expect(saved).toHaveLength(2);
       expect(saved[1]).toMatchObject({
         itemName: 'Soy sauce',
-        icon: '🍜',
+        // The picture is remembered from the item's history (guessed from its
+        // name for version-1 rows, which only carried an emoji).
+        imageKey: 'soy-sauce',
         category: 'condiment',
         amount: 2,
         unit: 'L',
@@ -154,7 +156,7 @@ describe('Spending screen', () => {
     fireEvent.press(screen.getByTestId('purchase-save'));
 
     expect(screen.getByText('Item name is required')).toBeOnTheScreen();
-    expect(screen.getByText('Pick an icon')).toBeOnTheScreen();
+    expect(screen.getByText('Pick a picture')).toBeOnTheScreen();
     expect(screen.getByText('Enter an amount above 0')).toBeOnTheScreen();
     expect(screen.getByText('Enter a price above 0')).toBeOnTheScreen();
     expect(screen.getByText('Store is required')).toBeOnTheScreen();
@@ -261,5 +263,23 @@ describe('Spending screen', () => {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       expect(JSON.parse(raw as string).purchases).toHaveLength(0);
     });
+  });
+});
+
+describe('Spending — where the month went', () => {
+  it('splits the month across the categories, biggest slice included', async () => {
+    await seed([
+      makePurchase({ id: 'p1', category: 'grocery', totalPrice: 30, date: `${currentMonthKey()}-04` }),
+      makePurchase({ id: 'p2', category: 'condiment', totalPrice: 10, date: `${currentMonthKey()}-06` }),
+    ]);
+
+    await renderScreen(<SpendingScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('spending-breakdown')).toBeOnTheScreen());
+    expect(screen.getByTestId('spending-share-grocery')).toHaveStyle({ width: '75%' });
+    expect(screen.getByTestId('spending-share-condiment')).toHaveStyle({ width: '25%' });
+    // Nothing was spent on anything else, so there is no third slice.
+    expect(screen.queryByTestId('spending-share-misc')).not.toBeOnTheScreen();
+    expect(screen.getByText('Grocery $30.00')).toBeOnTheScreen();
   });
 });

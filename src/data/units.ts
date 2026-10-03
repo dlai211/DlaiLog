@@ -10,3 +10,20 @@ export const UNIT_LABELS: Record<Unit, string> = {
   pcs: 'pcs',
   pack: 'pack',
 };
+
+/**
+ * A sensible step for the pantry's "+" and "−" buttons: whole pieces for
+ * countable things, halves for litres and kilos, fifties for grams and millilitres.
+ */
+export function quantityStep(unit: Unit): number {
+  switch (unit) {
+    case 'kg':
+    case 'L':
+      return 0.5;
+    case 'g':
+    case 'ml':
+      return 50;
+    default:
+      return 1;
+  }
+}

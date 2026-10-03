@@ -16,7 +16,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Spacing } from '@/constants/theme';
 import { CATEGORY_META } from '@/data/categories';
-import { useTheme } from '@/hooks/use-theme';
+import { StatTile } from '@/components/ui/stat-tile';
+import { useAccents, useScreenAccent, useTheme } from '@/hooks/use-theme';
 import { todayKey } from '@/lib/dates';
 import {
   formatLongDate,
@@ -28,11 +29,14 @@ import {
 } from '@/lib/format';
 import { useData } from '@/store/data-provider';
 import {
-  doneTasksForDay,
+  doneOccurrencesForDay,
   homeSummary,
-  overdueTasks,
+  isOutOfStock,
+  openOccurrencesForDay,
+  overdueOccurrences,
   projectDueLabel,
-  tasksForDay,
+  shoppingCounts,
+  type TaskOccurrence,
 } from '@/store/selectors';
 import type { Task } from '@/store/types';
 import { useToast } from '@/components/ui/toast';
@@ -43,16 +47,18 @@ import { useToast } from '@/components/ui/toast';
  * the module screens do.
  */
 export default function HomeScreen() {
-  const { db, addTask, updateTask, deleteTask, addNote, deleteNote } = useData();
+  const { db, addTask, updateTask, deleteTask, addNote, deleteNote, toggleTaskOn } = useData();
   const { showToast } = useToast();
   const theme = useTheme();
+  const accents = useAccents();
+  const accent = useScreenAccent('home');
   const router = useRouter();
 
   const today = todayKey();
   const summary = homeSummary(db);
-  const { timed, anytime } = tasksForDay(db.tasks, today);
-  const overdue = overdueTasks(db.tasks, today);
-  const doneToday = doneTasksForDay(db.tasks, today);
+  const { timed, anytime } = openOccurrencesForDay(db.tasks, today);
+  const overdue = overdueOccurrences(db.tasks, today);
+  const doneToday = doneOccurrencesForDay(db.tasks, today);
 
   const [quickTask, setQuickTask] = useState('');
   const [noteText, setNoteText] = useState('');
@@ -94,28 +100,32 @@ export default function HomeScreen() {
     setEditing(null);
   };
 
-  const renderRow = (task: Task, showDate = false) => (
+  const renderRow = (occurrence: TaskOccurrence, showDate = false) => (
     <TaskRow
-      key={task.id}
-      task={task}
+      key={`${occurrence.task.id}-${occurrence.date}`}
+      occurrence={occurrence}
       showDate={showDate}
-      onToggle={() => updateTask(task.id, { done: !task.done })}
+      onToggle={() => toggleTaskOn(occurrence.task.id, occurrence.date)}
       onEdit={() => {
-        setEditing(task);
+        setEditing(occurrence.task);
         setFormVisible(true);
       }}
-      onDelete={() => setPendingDelete(task)}
+      onDelete={() => setPendingDelete(occurrence.task)}
     />
   );
 
   const notes = [...db.notes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const dayIsEmpty = overdue.length === 0 && timed.length === 0 && anytime.length === 0 && doneToday.length === 0;
 
+  const outOfStockCount = db.inventory.filter(isOutOfStock).length;
+  const shoppingOpen = shoppingCounts(db.shopping).open;
+
   return (
-    <>
+    <View style={styles.page}>
       <PageHeader
         title="Home"
         subtitle={formatLongDate(today)}
+        accent={accent}
         action={
           <Button
             label="+ New task"
@@ -129,6 +139,46 @@ export default function HomeScreen() {
         }
       />
 
+      {/* One number from each module, in that module's colour */}
+      <View style={styles.statRow} testID="home-stats">
+        <StatTile
+          label="Spent this month"
+          value={formatMoney(summary.monthTotal)}
+          hint={summary.purchaseCount === 1 ? '1 entry' : `${summary.purchaseCount} entries`}
+          icon="wallet"
+          accent={accents.plum}
+          onPress={() => router.push('/spending')}
+          testID="home-stat-spending"
+        />
+        <StatTile
+          label="Open today"
+          value={String(timed.length + anytime.length)}
+          hint={overdue.length > 0 ? `${overdue.length} overdue` : 'all clear'}
+          icon="todo"
+          accent={accents.sky}
+          onPress={() => router.push('/todo')}
+          testID="home-stat-tasks"
+        />
+        <StatTile
+          label="Out of stock"
+          value={outOfStockCount === 0 ? 'None' : String(outOfStockCount)}
+          hint={outOfStockCount === 0 ? 'pantry is full' : 'pantry items'}
+          icon="box"
+          accent={accents.rose}
+          onPress={() => router.push('/inventory')}
+          testID="home-stat-pantry"
+        />
+        <StatTile
+          label="On the list"
+          value={String(shoppingOpen)}
+          hint="to buy"
+          icon="cart"
+          accent={accents.sand}
+          onPress={() => router.push('/inventory')}
+          testID="home-stat-shopping"
+        />
+      </View>
+
       <View style={styles.grid}>
         {/* Today's Plan — the To-do module, filtered to today */}
         <Card testID="home-today" style={styles.planCard}>
@@ -137,7 +187,7 @@ export default function HomeScreen() {
           <WeekStrip anchor={today} tasks={db.tasks} onSelectDay={goToDay} testID="home-week-strip" />
 
           {dayIsEmpty ? (
-            <EmptyState emoji="🌤" message="Nothing planned today — enjoy it." />
+            <EmptyState icon="sun" message="Nothing planned today — enjoy it." />
           ) : (
             <>
               {overdue.length > 0 ? (
@@ -194,7 +244,7 @@ export default function HomeScreen() {
           </View>
 
           {notes.length === 0 ? (
-            <EmptyState emoji="📝" message="No notes yet — jot something down." />
+            <EmptyState icon="note" message="No notes yet — jot something down." />
           ) : (
             <View style={styles.notes}>
               {notes.map((note) => (
@@ -267,6 +317,25 @@ export default function HomeScreen() {
           )}
         </Card>
 
+        {/* Pantry + shopping list */}
+        <Card
+          testID="home-pantry"
+          style={styles.summaryCard}
+          onPress={() => router.push('/inventory')}>
+          <ThemedText type="smallBold">Pantry &amp; shopping</ThemedText>
+          <ThemedText
+            type="heading"
+            themeColor={outOfStockCount > 0 ? 'dangerText' : 'text'}
+            testID="home-pantry-out">
+            {outOfStockCount === 0 ? 'All stocked up' : `${outOfStockCount} out of stock`}
+          </ThemedText>
+          <ThemedText type="caption" themeColor="textTertiary" testID="home-pantry-shopping">
+            {shoppingOpen === 0
+              ? 'Nothing on the shopping list'
+              : `${shoppingOpen} ${shoppingOpen === 1 ? 'item' : 'items'} on the shopping list`}
+          </ThemedText>
+        </Card>
+
         {/* Grocery Watch */}
         <Card testID="home-grocery" style={styles.watchCard} onPress={() => router.push('/grocery')}>
           <ThemedText type="smallBold">Grocery Watch</ThemedText>
@@ -310,15 +379,19 @@ export default function HomeScreen() {
 
       <ConfirmDialog
         visible={pendingDelete !== null}
-        title="Delete this task?"
-        message={`"${truncate(pendingDelete?.title ?? '', 40)}" will be removed. This can't be undone.`}
+        title={pendingDelete?.repeat ? 'Delete this repeating task?' : 'Delete this task?'}
+        message={
+          pendingDelete?.repeat
+            ? `"${truncate(pendingDelete.title, 40)}" and all of its repeats will be removed. This can't be undone.`
+            : `"${truncate(pendingDelete?.title ?? '', 40)}" will be removed. This can't be undone.`
+        }
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => {
           if (pendingDelete) deleteTask(pendingDelete.id);
           setPendingDelete(null);
         }}
       />
-    </>
+    </View>
   );
 }
 
@@ -335,10 +408,22 @@ function changeColor(summary: ReturnType<typeof homeSummary>): 'dangerText' | 's
 }
 
 const styles = StyleSheet.create({
-  grid: {
+  // The dashboard reads as three bands — header, the numbers, the widgets —
+  // with room to breathe between them.
+  page: {
+    gap: Spacing.five,
+  },
+  statRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.three,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    // Cards keep their natural height instead of stretching to fill an empty row.
+    alignItems: 'flex-start',
+    gap: Spacing.four,
   },
   planCard: {
     flexGrow: 2,
@@ -380,7 +465,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     borderWidth: 1,
     borderRadius: Spacing.two,
-    paddingVertical: Spacing.one + 2,
+    paddingVertical: Spacing.oneHalf,
     paddingHorizontal: Spacing.two,
   },
   noteText: {

@@ -13,7 +13,7 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { RowActions } from '@/components/ui/row-actions';
 import { Segmented } from '@/components/ui/segmented';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useAccents, useScreenAccent } from '@/hooks/use-theme';
 import { formatShortDate } from '@/lib/format';
 import { useData } from '@/store/data-provider';
 import {
@@ -26,6 +26,7 @@ import {
 import type { Project } from '@/store/types';
 
 export default function ProjectsScreen() {
+  const accent = useScreenAccent('projects');
   const { db, addProject, updateProject, deleteProject } = useData();
   const [filter, setFilter] = useState<ProjectFilter>('all');
   const [formVisible, setFormVisible] = useState(false);
@@ -63,6 +64,7 @@ export default function ProjectsScreen() {
     <>
       <PageHeader
         title="Projects"
+        accent={accent}
         subtitle="Progress of your development work"
         action={
           <Button label="+ New project" variant="primary" testID="new-project" onPress={openNew} />
@@ -84,7 +86,7 @@ export default function ProjectsScreen() {
 
       {visibleProjects.length === 0 ? (
         <EmptyState
-          emoji="📊"
+          icon="projects"
           message={
             db.projects.length === 0
               ? 'No projects yet — add your first one.'
@@ -135,14 +137,15 @@ function ProjectCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const theme = useTheme();
+  const accents = useAccents();
   const done = project.status === 'done';
   const due = project.targetDate ? projectDueLabel(project.targetDate) : null;
+  // Each state has its own colour: finished mint, moving clay, not started sky.
   const statusColor = done
-    ? theme.successText
+    ? accents.mint
     : project.status === 'in-progress'
-      ? theme.primary
-      : theme.textSecondary;
+      ? accents.clay
+      : accents.sky;
 
   return (
     <Card
@@ -167,11 +170,7 @@ function ProjectCard({
         />
       </View>
 
-      <ProgressBar
-        value={project.progress}
-        color={done ? theme.successText : theme.primary}
-        testID={`project-progress-bar-${project.id}`}
-      />
+      <ProgressBar value={project.progress} color={statusColor} testID={`project-progress-bar-${project.id}`} />
 
       <View style={styles.cardMeta}>
         <ThemedText type="small" themeColor="textSecondary">

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { AppModal } from '@/components/ui/modal';
 import { MonthGrid } from '@/components/ui/month-grid';
 import { Spacing } from '@/constants/theme';
@@ -68,9 +69,7 @@ export function DatePicker({
         <ThemedText type="small" themeColor={value ? 'text' : 'textTertiary'}>
           {value ? formatLongDate(value) : placeholder}
         </ThemedText>
-        <ThemedText type="caption" themeColor="textTertiary">
-          📅
-        </ThemedText>
+        <Icon name="calendar" size={15} color={theme.textTertiary} />
       </Pressable>
 
       <AppModal

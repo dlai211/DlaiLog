@@ -1,14 +1,15 @@
-import { useEffect, type ReactNode } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Icon } from '@/components/ui/icon';
+import { Motion, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * The centered pop-up used by every add/edit form, confirm dialog and picker
- * (PRD §2.3). Clicking the backdrop or pressing Esc closes it.
+ * The centered pop-up used by every add/edit form, confirm dialog and picker.
+ * Clicking the backdrop or pressing Esc closes it; it eases in and out.
  */
 export function AppModal({
   visible,
@@ -26,6 +27,21 @@ export function AppModal({
   testID?: string;
 }) {
   const theme = useTheme();
+  // Held in state rather than a ref: it is a stable object that is read while
+  // rendering (the compiler forbids ref reads during render).
+  const [progress] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    if (!visible) {
+      progress.setValue(0);
+      return;
+    }
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: Motion.normal,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [visible, progress]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !visible) return;
@@ -45,32 +61,41 @@ export function AppModal({
           accessibilityLabel="Close dialog"
           testID={testID ? `${testID}-backdrop` : undefined}
         />
-        <ThemedView
-          testID={testID}
-          style={[styles.dialog, { backgroundColor: theme.background, borderColor: theme.border }]}>
-          <View style={styles.header}>
-            <ThemedText type="heading" style={styles.title}>
-              {title}
-            </ThemedText>
-            <Pressable
-              testID={testID ? `${testID}-close` : undefined}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              onPress={onClose}
-              style={styles.closeButton}>
-              <ThemedText type="default" themeColor="textSecondary">
-                ✕
+        <Animated.View
+          style={[
+            styles.dialogWrap,
+            {
+              opacity: progress,
+              transform: [
+                { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+              ],
+            },
+          ]}>
+          <ThemedView
+            testID={testID}
+            style={[styles.dialog, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+            <View style={styles.header}>
+              <ThemedText type="heading" style={styles.title}>
+                {title}
               </ThemedText>
-            </Pressable>
-          </View>
-          <ScrollView
-            style={styles.body}
-            contentContainerStyle={styles.bodyContent}
-            keyboardShouldPersistTaps="handled">
-            {children}
-          </ScrollView>
-          {footer ? <View style={styles.footer}>{footer}</View> : null}
-        </ThemedView>
+              <Pressable
+                testID={testID ? `${testID}-close` : undefined}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                onPress={onClose}
+                style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
+                <Icon name="close" size={18} color={theme.textSecondary} />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={styles.bodyContent}
+              keyboardShouldPersistTaps="handled">
+              {children}
+            </ScrollView>
+            {footer ? <View style={styles.footer}>{footer}</View> : null}
+          </ThemedView>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -79,19 +104,25 @@ export function AppModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(31, 34, 32, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.three,
   },
-  dialog: {
+  dialogWrap: {
     width: '100%',
     maxWidth: 560,
-    maxHeight: '85%',
-    borderRadius: Spacing.three,
+    maxHeight: '88%',
+  },
+  dialog: {
+    borderRadius: Radius.large,
     borderWidth: 1,
-    padding: Spacing.three,
+    borderStyle: 'dashed',
+    padding: Spacing.four,
     gap: Spacing.three,
+    // Let the dialog shrink to the window and hand the remaining space to the
+    // scrolling body, so tall forms still reach their buttons.
+    maxHeight: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -103,10 +134,15 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   closeButton: {
-    padding: Spacing.one,
+    padding: Spacing.oneHalf,
+    borderRadius: Radius.small,
+  },
+  pressed: {
+    opacity: 0.6,
   },
   body: {
     flexGrow: 0,
+    flexShrink: 1,
   },
   bodyContent: {
     gap: Spacing.three,

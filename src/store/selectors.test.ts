@@ -1,27 +1,51 @@
 import {
   biggestPriceMoves,
   categoryCounts,
-  doneTasksForDay,
+  doneOccurrencesForDay,
   filterProjects,
   filterPurchases,
+  findSimilarItemName,
+  findSimilarStore,
   groceryItems,
   groupPurchasesByDay,
   homeSummary,
+  ingredientNameSuggestions,
+  isOutOfStock,
+  isTaskDoneOn,
   itemMemory,
   itemSuggestions,
+  lastPurchaseFor,
+  looseKey,
+  mealIngredientStatuses,
+  missingIngredients,
   monthSummary,
   monthTotal,
   normalizeItemName,
-  overdueTasks,
+  openOccurrenceCounts,
+  openOccurrencesByDay,
+  openOccurrencesForDay,
+  overdueOccurrences,
   projectDueLabel,
-  recentIcons,
+  purchaseStockChange,
+  recentTileKeys,
+  shoppingCounts,
+  shoppingSuggestions,
+  sortInventory,
   sortProjects,
   storeSuggestions,
   storesInUse,
-  tasksForDay,
-  undoneTasksByDay,
+  taskOccursOn,
 } from '@/store/selectors';
-import { emptyDB, type Project, type Purchase, type Task } from '@/store/types';
+import {
+  emptyDB,
+  type Ingredient,
+  type Meal,
+  type MealIngredient,
+  type Project,
+  type Purchase,
+  type Task,
+  type Unit,
+} from '@/store/types';
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   const stamp = '2026-09-30T08:00:00.000Z';
@@ -133,7 +157,7 @@ describe('filterProjects', () => {
   });
 });
 
-describe('tasksForDay', () => {
+describe('openOccurrencesForDay', () => {
   it('splits timed and untimed open tasks, ignoring other days and finished ones', () => {
     const tasks = [
       makeTask({ id: 'late', time: '14:00' }),
@@ -143,10 +167,12 @@ describe('tasksForDay', () => {
       makeTask({ id: 'finished', done: true }),
     ];
 
-    const { timed, anytime } = tasksForDay(tasks, '2026-09-30');
+    const { timed, anytime } = openOccurrencesForDay(tasks, '2026-09-30');
 
-    expect(timed.map((task) => task.id)).toEqual(['early', 'late']);
-    expect(anytime.map((task) => task.id)).toEqual(['anytime']);
+    expect(timed.map((occurrence) => occurrence.task.id)).toEqual(['early', 'late']);
+    expect(anytime.map((occurrence) => occurrence.task.id)).toEqual(['anytime']);
+    expect(timed[0].date).toBe('2026-09-30');
+    expect(timed[0].done).toBe(false);
   });
 
   it('orders untimed tasks by creation time', () => {
@@ -155,14 +181,13 @@ describe('tasksForDay', () => {
       makeTask({ id: 'earlier', createdAt: '2026-09-30T07:00:00.000Z' }),
     ];
 
-    expect(tasksForDay(tasks, '2026-09-30').anytime.map((task) => task.id)).toEqual([
-      'earlier',
-      'later',
-    ]);
+    expect(
+      openOccurrencesForDay(tasks, '2026-09-30').anytime.map((occurrence) => occurrence.task.id)
+    ).toEqual(['earlier', 'later']);
   });
 });
 
-describe('doneTasksForDay', () => {
+describe('doneOccurrencesForDay', () => {
   it('returns only the finished tasks of that day', () => {
     const tasks = [
       makeTask({ id: 'done-here', done: true }),
@@ -170,11 +195,13 @@ describe('doneTasksForDay', () => {
       makeTask({ id: 'done-elsewhere', done: true, date: '2026-10-01' }),
     ];
 
-    expect(doneTasksForDay(tasks, '2026-09-30').map((task) => task.id)).toEqual(['done-here']);
+    expect(
+      doneOccurrencesForDay(tasks, '2026-09-30').map((occurrence) => occurrence.task.id)
+    ).toEqual(['done-here']);
   });
 });
 
-describe('overdueTasks', () => {
+describe('overdueOccurrences', () => {
   it('lists unfinished tasks from earlier days, oldest first', () => {
     const tasks = [
       makeTask({ id: 'yesterday', date: '2026-09-29' }),
@@ -183,14 +210,25 @@ describe('overdueTasks', () => {
       makeTask({ id: 'old-but-done', date: '2026-09-20', done: true }),
     ];
 
-    expect(overdueTasks(tasks, '2026-09-30').map((task) => task.id)).toEqual([
+    expect(overdueOccurrences(tasks, '2026-09-30').map((occurrence) => occurrence.task.id)).toEqual([
       'last-week',
       'yesterday',
     ]);
   });
+
+  it('leaves repeating tasks out — a missed Tuesday is not a debt', () => {
+    const tasks = [
+      makeTask({ id: 'repeat', date: '2026-09-01', repeat: { days: [2] } }),
+      makeTask({ id: 'one-off', date: '2026-09-29' }),
+    ];
+
+    expect(overdueOccurrences(tasks, '2026-09-30').map((occurrence) => occurrence.task.id)).toEqual([
+      'one-off',
+    ]);
+  });
 });
 
-describe('undoneTasksByDay', () => {
+describe('openOccurrencesByDay', () => {
   it('groups the open tasks of a month by day, timed first', () => {
     const tasks = [
       makeTask({ id: 'untimed', date: '2026-09-30' }),
@@ -200,11 +238,85 @@ describe('undoneTasksByDay', () => {
       makeTask({ id: 'finished', date: '2026-09-30', done: true }),
     ];
 
-    const byDay = undoneTasksByDay(tasks, '2026-09');
+    const byDay = openOccurrencesByDay(tasks, '2026-09');
 
     expect(Object.keys(byDay).sort()).toEqual(['2026-09-15', '2026-09-30']);
-    expect(byDay['2026-09-30'].map((task) => task.id)).toEqual(['timed', 'untimed']);
-    expect(byDay['2026-09-15'].map((task) => task.id)).toEqual(['mid-month']);
+    expect(byDay['2026-09-30'].map((occurrence) => occurrence.task.id)).toEqual(['timed', 'untimed']);
+    expect(byDay['2026-09-15'].map((occurrence) => occurrence.task.id)).toEqual(['mid-month']);
+  });
+});
+
+describe('tasks that repeat', () => {
+  // Every Tuesday and Thursday, starting Tue 6 Oct 2026, until the end of
+  // October — the worked example from the requirements.
+  const tueThu = makeTask({
+    id: 'tue-thu',
+    date: '2026-10-06',
+    time: '12:00',
+    endTime: '14:00',
+    repeat: { days: [2, 4], until: '2026-10-31' },
+  });
+
+  it('lands on every matching weekday of its series', () => {
+    expect(taskOccursOn(tueThu, '2026-10-06')).toBe(true); // Tuesday
+    expect(taskOccursOn(tueThu, '2026-10-08')).toBe(true); // Thursday
+    expect(taskOccursOn(tueThu, '2026-10-07')).toBe(false); // Wednesday
+  });
+
+  it('does not reach back before it starts, or past its end date', () => {
+    expect(taskOccursOn(tueThu, '2026-09-29')).toBe(false); // Tuesday, before the start
+    expect(taskOccursOn(tueThu, '2026-11-03')).toBe(false); // Tuesday, after the end
+  });
+
+  it('comes back every day when all seven days are chosen', () => {
+    const daily = makeTask({ id: 'daily', date: '2026-09-28', repeat: { days: [0, 1, 2, 3, 4, 5, 6] } });
+    expect(taskOccursOn(daily, '2026-09-28')).toBe(true);
+    expect(taskOccursOn(daily, '2026-11-30')).toBe(true);
+  });
+
+  it('shows up on each of its days in the month view', () => {
+    const byDay = openOccurrencesByDay([tueThu], '2026-10');
+    expect(Object.keys(byDay).sort()).toEqual([
+      '2026-10-06',
+      '2026-10-08',
+      '2026-10-13',
+      '2026-10-15',
+      '2026-10-20',
+      '2026-10-22',
+      '2026-10-27',
+      '2026-10-29',
+    ]);
+  });
+
+  it('is ticked off one day at a time', () => {
+    const ticked = { ...tueThu, doneDates: ['2026-10-06'] };
+
+    expect(isTaskDoneOn(ticked, '2026-10-06')).toBe(true);
+    expect(isTaskDoneOn(ticked, '2026-10-08')).toBe(false);
+    expect(
+      openOccurrencesForDay([ticked], '2026-10-06').timed.map((occurrence) => occurrence.task.id)
+    ).toEqual([]);
+    expect(
+      doneOccurrencesForDay([ticked], '2026-10-06').map((occurrence) => occurrence.task.id)
+    ).toEqual(['tue-thu']);
+    expect(
+      openOccurrencesForDay([ticked], '2026-10-08').timed.map((occurrence) => occurrence.task.id)
+    ).toEqual(['tue-thu']);
+  });
+
+  it('counts its appearances for the week strip’s dots', () => {
+    const counts = openOccurrenceCounts([tueThu], ['2026-10-05', '2026-10-06', '2026-10-08']);
+
+    expect(counts).toEqual({ '2026-10-05': 0, '2026-10-06': 1, '2026-10-08': 1 });
+  });
+
+  it('marks its occurrences as repeating, and one-off tasks as not', () => {
+    const once = makeTask({ id: 'once' });
+    const [repeatingOccurrence] = openOccurrencesForDay([tueThu], '2026-10-06').timed;
+    const [onceOccurrence] = openOccurrencesForDay([once], '2026-09-30').anytime;
+
+    expect(repeatingOccurrence.repeating).toBe(true);
+    expect(onceOccurrence.repeating).toBe(false);
   });
 });
 
@@ -330,11 +442,11 @@ describe('itemMemory / itemSuggestions', () => {
   });
 });
 
-describe('storeSuggestions / storesInUse / recentIcons', () => {
+describe('storeSuggestions / storesInUse / recentTileKeys', () => {
   const purchases = [
-    makePurchase({ id: 'a', store: 'SuperMart', icon: '🍜', date: '2026-09-01' }),
-    makePurchase({ id: 'b', store: 'SuperMart', icon: '🍚', date: '2026-09-05' }),
-    makePurchase({ id: 'c', store: 'Asia Market', icon: '🧽', date: '2026-09-10' }),
+    makePurchase({ id: 'a', store: 'SuperMart', imageKey: 'noodles', date: '2026-09-01' }),
+    makePurchase({ id: 'b', store: 'SuperMart', imageKey: 'rice', date: '2026-09-05' }),
+    makePurchase({ id: 'c', store: 'Asia Market', imageKey: 'cleaning-tools', date: '2026-09-10' }),
   ];
 
   it('suggests stores most-used first, skipping the exact input', () => {
@@ -349,9 +461,9 @@ describe('storeSuggestions / storesInUse / recentIcons', () => {
     expect(storesInUse(purchases)).toEqual(['Asia Market', 'SuperMart']);
   });
 
-  it('lists the most recently used icons, newest first, without repeats', () => {
-    expect(recentIcons(purchases)).toEqual(['🧽', '🍚', '🍜']);
-    expect(recentIcons(purchases, 2)).toEqual(['🧽', '🍚']);
+  it('lists the most recently used pictures, newest first, without repeats', () => {
+    expect(recentTileKeys(purchases)).toEqual(['cleaning-tools', 'rice', 'noodles']);
+    expect(recentTileKeys(purchases, 2)).toEqual(['cleaning-tools', 'rice']);
   });
 });
 
@@ -549,5 +661,228 @@ describe('homeSummary', () => {
       priceMovers: [],
     });
     expect(summary.topCategory).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pantry, meals and the shopping list
+// ---------------------------------------------------------------------------
+
+function makeIngredient(overrides: Partial<Ingredient> = {}): Ingredient {
+  const stamp = '2026-09-30T08:00:00.000Z';
+  return {
+    id: 'i1',
+    name: 'Soy sauce',
+    key: 'soy sauce',
+    category: 'condiment',
+    quantity: 1,
+    unit: 'L',
+    createdAt: stamp,
+    updatedAt: stamp,
+    ...overrides,
+  };
+}
+
+function makeMeal(overrides: Partial<Meal> = {}): Meal {
+  const stamp = '2026-09-30T08:00:00.000Z';
+  return {
+    id: 'm1',
+    name: 'Braised pork rice',
+    ingredients: [],
+    steps: '',
+    createdAt: stamp,
+    updatedAt: stamp,
+    ...overrides,
+  };
+}
+
+function mealIngredient(name: string, amount?: number, unit?: Unit): MealIngredient {
+  return { id: `ing-${name}`, name, key: normalizeItemName(name), amount, unit };
+}
+
+describe('looseKey and the saved-name memory', () => {
+  it('ignores case, spacing and punctuation', () => {
+    expect(looseKey('Soy  Sauce-1')).toBe('soysauce1');
+    expect(looseKey('soy_sauce')).toBe('soysauce');
+  });
+
+  it('recognises a near-miss spelling of a tracked item', () => {
+    const purchases = [makePurchase({ itemName: 'Soy sauce' })];
+    expect(findSimilarItemName(purchases, 'soy-sauce')).toBe('Soy sauce');
+    expect(findSimilarItemName(purchases, 'SoySauce')).toBe('Soy sauce');
+  });
+
+  it('stays quiet for an exact spelling (it merges anyway) or something unrelated', () => {
+    const purchases = [makePurchase({ itemName: 'Soy sauce' })];
+    expect(findSimilarItemName(purchases, 'soy sauce')).toBeNull();
+    expect(findSimilarItemName(purchases, 'rice')).toBeNull();
+    expect(findSimilarItemName(purchases, 'so')).toBeNull();
+  });
+
+  it('does the same for store names', () => {
+    const purchases = [makePurchase({ store: 'Asia Market' })];
+    expect(findSimilarStore(purchases, 'asia-market')).toBe('Asia Market');
+    expect(findSimilarStore(purchases, 'Asia Market')).toBeNull();
+  });
+
+  it('offers loose matches while typing, not just prefixes', () => {
+    const purchases = [makePurchase({ itemName: 'Soy sauce' })];
+    expect(itemSuggestions(purchases, 'soy').map((entry) => entry.name)).toEqual(['Soy sauce']);
+    expect(itemSuggestions(purchases, 'sauce').map((entry) => entry.name)).toEqual(['Soy sauce']);
+  });
+});
+
+describe('purchaseStockChange', () => {
+  const purchase = makePurchase({ itemName: 'Soy sauce', amount: 1, unit: 'L' });
+
+  it('creates a pantry row for an item that is new to it', () => {
+    const change = purchaseStockChange([], purchase, 1);
+    expect(change?.create).toMatchObject({
+      name: 'Soy sauce',
+      key: 'soy sauce',
+      quantity: 1,
+      unit: 'L',
+      category: 'condiment',
+    });
+  });
+
+  it('adds to the count when the units match', () => {
+    const inventory = [makeIngredient({ quantity: 0.5, unit: 'L' })];
+    expect(purchaseStockChange(inventory, purchase, 1)?.patch).toMatchObject({ quantity: 1.5 });
+  });
+
+  it('subtracts when a purchase is removed, never below zero', () => {
+    const inventory = [makeIngredient({ quantity: 0.5, unit: 'L' })];
+    expect(purchaseStockChange(inventory, makePurchase({ amount: 2 }), -1)?.patch).toMatchObject({
+      quantity: 0,
+    });
+  });
+
+  it('re-bases the count when the units do not line up', () => {
+    const inventory = [makeIngredient({ quantity: 500, unit: 'ml' })];
+    expect(purchaseStockChange(inventory, purchase, 1)?.patch).toMatchObject({
+      quantity: 1,
+      unit: 'L',
+    });
+  });
+
+  it('does nothing when removing something the pantry never had', () => {
+    expect(purchaseStockChange([], purchase, -1)).toBeNull();
+  });
+});
+
+describe('inventory listing', () => {
+  it('lists out-of-stock items first', () => {
+    const items = [
+      makeIngredient({ id: 'a', name: 'Rice', key: 'rice', quantity: 5 }),
+      makeIngredient({ id: 'b', name: 'Olive oil', key: 'olive oil', quantity: 0 }),
+      makeIngredient({ id: 'c', name: 'Butter', key: 'butter', quantity: 2 }),
+    ];
+    expect(sortInventory(items).map((item) => item.name)).toEqual(['Olive oil', 'Butter', 'Rice']);
+    expect(isOutOfStock(items[1])).toBe(true);
+    expect(isOutOfStock(items[0])).toBe(false);
+  });
+
+  it('finds the most recent purchase of an item', () => {
+    const purchases = [
+      makePurchase({ id: 'old', date: '2026-08-01', totalPrice: 5 }),
+      makePurchase({ id: 'new', date: '2026-09-28', totalPrice: 6.45 }),
+    ];
+    expect(lastPurchaseFor(purchases, 'soy sauce')?.id).toBe('new');
+    expect(lastPurchaseFor(purchases, 'rice')).toBeUndefined();
+  });
+});
+
+describe('meals and the pantry', () => {
+  const meal = makeMeal({
+    ingredients: [mealIngredient('Soy sauce', 2, 'L'), mealIngredient('Pork belly', 500, 'g')],
+  });
+
+  it('labels each ingredient as in stock or missing', () => {
+    const inventory = [makeIngredient({ key: 'soy sauce', quantity: 1 })];
+    const statuses = mealIngredientStatuses(meal, inventory);
+
+    expect(statuses[0]).toMatchObject({ inStock: true, stockQuantity: 1 });
+    expect(statuses[1]).toMatchObject({ inStock: false, stockQuantity: 0 });
+  });
+
+  it('flags ingredients already waiting on the shopping list', () => {
+    const shopping = [
+      {
+        id: 's1',
+        name: 'Pork belly',
+        key: 'pork belly',
+        source: 'meal' as const,
+        done: false,
+        createdAt: '2026-09-30T08:00:00.000Z',
+      },
+    ];
+    expect(mealIngredientStatuses(meal, [], shopping)[1].onShoppingList).toBe(true);
+  });
+
+  it('lists what is missing for a dish', () => {
+    const inventory = [makeIngredient({ key: 'soy sauce', quantity: 1 })];
+    expect(missingIngredients(meal, inventory).map((ingredient) => ingredient.name)).toEqual([
+      'Pork belly',
+    ]);
+  });
+
+  it('suggests ingredient names from the pantry and from purchase history', () => {
+    const purchases = [makePurchase({ itemName: 'Soy sauce' })];
+    const inventory = [makeIngredient({ name: 'Pork belly', key: 'pork belly' })];
+
+    expect(ingredientNameSuggestions(purchases, inventory, 'so').map((entry) => entry.name)).toEqual([
+      'Soy sauce',
+    ]);
+    expect(ingredientNameSuggestions(purchases, inventory, 'pork')).toEqual([
+      { name: 'Pork belly', hint: 'in your pantry' },
+    ]);
+  });
+});
+
+describe('shoppingSuggestions', () => {
+  const meal = makeMeal({ ingredients: [mealIngredient('Pork belly')] });
+
+  it('offers pantry items that ran out and ingredients a meal needs', () => {
+    const inventory = [
+      makeIngredient({ key: 'soy sauce', name: 'Soy sauce', quantity: 0 }),
+      makeIngredient({ id: 'rice', key: 'rice', name: 'Rice', quantity: 2 }),
+    ];
+
+    const suggestions = shoppingSuggestions(inventory, [meal], []);
+
+    expect(suggestions.map((suggestion) => suggestion.name)).toEqual(['Soy sauce', 'Pork belly']);
+    expect(suggestions[0]).toMatchObject({ kind: 'inventory' });
+    expect(suggestions[1]).toMatchObject({ kind: 'meal', sourceLabel: 'Braised pork rice' });
+  });
+
+  it('leaves out anything already on the open list', () => {
+    const inventory = [makeIngredient({ key: 'soy sauce', name: 'Soy sauce', quantity: 0 })];
+    const shopping = [
+      {
+        id: 's1',
+        name: 'Soy sauce',
+        key: 'soy sauce',
+        source: 'inventory' as const,
+        done: false,
+        createdAt: '2026-09-30T08:00:00.000Z',
+      },
+    ];
+
+    expect(shoppingSuggestions(inventory, [], shopping)).toEqual([]);
+  });
+
+  it('counts open and bought items', () => {
+    const base = {
+      source: 'manual' as const,
+      createdAt: '2026-09-30T08:00:00.000Z',
+    };
+    expect(
+      shoppingCounts([
+        { ...base, id: 's1', name: 'A', key: 'a', done: false },
+        { ...base, id: 's2', name: 'B', key: 'b', done: true },
+        { ...base, id: 's3', name: 'C', key: 'c', done: false },
+      ])
+    ).toEqual({ open: 2, done: 1 });
   });
 });

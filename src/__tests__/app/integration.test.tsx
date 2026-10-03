@@ -66,8 +66,8 @@ describe('Spending feeds the Grocery Tracker', () => {
     // Log a condiment from scratch, the way a person would.
     fireEvent.press(screen.getByTestId('new-purchase'));
     fireEvent.changeText(screen.getByTestId('purchase-name'), 'Soy sauce');
-    fireEvent.changeText(screen.getByTestId('purchase-icon-search'), 'soy');
-    fireEvent.press(screen.getByTestId('purchase-icon-option-0'));
+    fireEvent.changeText(screen.getByTestId('purchase-picture-search'), 'soy');
+    fireEvent.press(screen.getByTestId('purchase-picture-option-soy-sauce'));
     fireEvent.press(screen.getByTestId('purchase-category-condiment'));
     fireEvent.changeText(screen.getByTestId('purchase-amount'), '1');
     fireEvent.press(screen.getByTestId('purchase-unit'));

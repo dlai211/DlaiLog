@@ -5,6 +5,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { parseKey, todayKey, weekStrip } from '@/lib/dates';
 import { WEEKDAY_LETTERS } from '@/lib/format';
+import { openOccurrenceCounts } from '@/store/selectors';
 import type { Task } from '@/store/types';
 
 /**
@@ -26,10 +27,9 @@ export function WeekStrip({
   const today = todayKey();
   const days = weekStrip(anchor);
 
-  const openCounts: Record<string, number> = {};
-  for (const task of tasks) {
-    if (!task.done) openCounts[task.date] = (openCounts[task.date] ?? 0) + 1;
-  }
+  // Counts appearances, so a task that repeats into this week shows up on
+  // every day it lands on.
+  const openCounts = openOccurrenceCounts(tasks, days);
 
   return (
     <View testID={testID} style={styles.strip}>

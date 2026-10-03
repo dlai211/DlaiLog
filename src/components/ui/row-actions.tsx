@@ -1,35 +1,34 @@
-import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Icon, type IconName } from '@/components/ui/icon';
+import { Radius, Spacing } from '@/constants/theme';
+import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 
-/** The ✎ ✕ pair on list rows; they brighten when the mouse hovers the row. */
+/** The edit/delete pair on list rows; they lift when the row is hovered. */
 export function RowActions({
   onEdit,
   onDelete,
   editTestID,
   deleteTestID,
-  accessibilityLabel = 'Edit',
+  editLabel = 'Edit',
+  deleteLabel = 'Delete',
 }: {
   onEdit?: () => void;
   onDelete?: () => void;
   editTestID?: string;
   deleteTestID?: string;
-  accessibilityLabel?: string;
+  editLabel?: string;
+  deleteLabel?: string;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const { hovered, hoverProps } = useHover();
 
   return (
-    <View
-      style={styles.row}
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}>
+    <View style={styles.row} {...hoverProps}>
       {onEdit ? (
         <ActionButton
-          glyph="✎"
-          label={accessibilityLabel}
+          icon="pencil"
+          label={editLabel}
           onPress={onEdit}
           testID={editTestID}
           highlighted={hovered}
@@ -37,11 +36,12 @@ export function RowActions({
       ) : null}
       {onDelete ? (
         <ActionButton
-          glyph="✕"
-          label="Delete"
+          icon="trash"
+          label={deleteLabel}
           onPress={onDelete}
           testID={deleteTestID}
           highlighted={hovered}
+          tone="danger"
         />
       ) : null}
     </View>
@@ -49,19 +49,24 @@ export function RowActions({
 }
 
 function ActionButton({
-  glyph,
+  icon,
   label,
   onPress,
   testID,
   highlighted,
+  tone = 'normal',
 }: {
-  glyph: string;
+  icon: IconName;
   label: string;
   onPress: () => void;
   testID?: string;
   highlighted: boolean;
+  tone?: 'normal' | 'danger';
 }) {
   const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
+
+  const color = tone === 'danger' && (highlighted || hovered) ? theme.dangerText : highlighted || hovered ? theme.text : theme.textTertiary;
 
   return (
     <Pressable
@@ -75,10 +80,13 @@ function ActionButton({
         if (typeof event?.stopPropagation === 'function') event.stopPropagation();
         onPress();
       }}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
-      <ThemedText type="caption" style={{ color: highlighted ? theme.text : theme.textTertiary }}>
-        {glyph}
-      </ThemedText>
+      {...hoverProps}
+      style={({ pressed }) => [
+        styles.button,
+        hovered && { backgroundColor: theme.backgroundSelected },
+        pressed && styles.pressed,
+      ]}>
+      <Icon name={icon} size={16} color={color} />
     </Pressable>
   );
 }
@@ -86,12 +94,13 @@ function ActionButton({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    gap: Spacing.one,
+    gap: Spacing.half,
   },
   button: {
-    padding: Spacing.one,
-    minWidth: 24,
+    padding: Spacing.oneHalf,
+    borderRadius: Radius.small,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.6,

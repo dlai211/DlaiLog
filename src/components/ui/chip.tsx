@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
+import { useHover } from '@/hooks/use-hover';
 import { useTheme } from '@/hooks/use-theme';
 
 /** A small pill: category tags, filters, day totals. Can be tappable. */
@@ -13,13 +14,14 @@ export function Chip({
   testID,
 }: {
   label: string;
-  /** Category color (or any palette color) to tint the text and border. */
+  /** Category colour (or any palette colour) to tint the text and border. */
   color?: string;
   selected?: boolean;
   onPress?: () => void;
   testID?: string;
 }) {
   const theme = useTheme();
+  const { hovered, hoverProps } = useHover();
   const tint = color ?? theme.textSecondary;
 
   return (
@@ -38,10 +40,12 @@ export function Chip({
             }
           : undefined
       }
+      {...hoverProps}
       style={({ pressed }) => [
         styles.chip,
         { borderColor: selected ? tint : theme.border },
         selected && { backgroundColor: theme.backgroundSelected },
+        hovered && onPress && !selected && { backgroundColor: theme.hover, borderColor: tint },
         pressed && onPress && styles.pressed,
       ]}>
       <ThemedText
@@ -56,9 +60,10 @@ export function Chip({
 const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: Spacing.half + 2,
-    paddingHorizontal: Spacing.two,
+    borderStyle: 'dashed',
+    borderRadius: Radius.pill,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.twoHalf,
   },
   pressed: {
     opacity: 0.75,
