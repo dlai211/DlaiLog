@@ -456,3 +456,39 @@ test('the Albertsons trip imports into an app that already has data, once', asyn
     '2 lb'
   );
 });
+
+test('a suggestion can be dragged right across into the shopping cart', async ({ page }) => {
+  await page.goto('/inventory');
+
+  // Something the pantry has run out of, so there is a suggestion to drag.
+  await page.getByTestId('new-inventory-item').click();
+  await page.getByTestId('inventory-name').fill('Cooking oil');
+  await page.getByTestId('inventory-quantity').fill('0');
+  await page.getByTestId('inventory-save').click();
+  await page.getByTestId('inventory-tabs-shopping').click();
+
+  const grip = page.locator('[data-testid^="suggestion-grip-"]').first();
+  const cart = page.getByTestId('shopping-cart');
+  await expect(grip).toBeVisible();
+
+  const borderBefore = await cart.evaluate((el) => getComputedStyle(el).borderColor);
+  const from = await grip.boundingBox();
+  const to = await cart.boundingBox();
+  if (!from || !to) throw new Error('Could not measure the drag.');
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  // Out of the card and across the gap to the cart, in one go.
+  await page.mouse.move(to.x + to.width / 2, to.y + 40, { steps: 20 });
+
+  // The cart lights up while the pointer is over it…
+  await expect
+    .poll(async () => cart.evaluate((el) => getComputedStyle(el).borderColor))
+    .not.toBe(borderBefore);
+
+  await page.mouse.up();
+
+  // …the drop lands, and the browser never took the gesture for a text selection.
+  await expect(cart).toContainText('Cooking oil');
+  expect(await page.evaluate(() => String(window.getSelection() ?? '').trim())).toBe('');
+});

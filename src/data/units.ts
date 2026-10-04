@@ -1,6 +1,21 @@
 import type { Unit } from '@/store/types';
 
-export const UNIT_OPTIONS: Unit[] = ['ml', 'L', 'g', 'kg', 'pcs', 'pack', 'bag', 'lb', 'oz'];
+export const UNIT_OPTIONS: Unit[] = [
+  'qty',
+  'pcs',
+  'pack',
+  'bag',
+  'g',
+  'kg',
+  'lb',
+  'oz',
+  'ml',
+  'L',
+  'tbsp',
+  'tsp',
+  'clove',
+  'stalk',
+];
 
 export const UNIT_LABELS: Record<Unit, string> = {
   ml: 'ml',
@@ -12,6 +27,11 @@ export const UNIT_LABELS: Record<Unit, string> = {
   bag: 'bag',
   lb: 'lb',
   oz: 'oz',
+  tbsp: 'tbsp',
+  tsp: 'tsp',
+  clove: 'clove',
+  stalk: 'stalk',
+  qty: 'Qty',
 };
 
 /**
@@ -29,6 +49,10 @@ export function quantityStep(unit: Unit): number {
     case 'g':
     case 'ml':
       return 50;
+    case 'tbsp':
+    case 'tsp':
+      // A spoonful at a time — the useful step when cooking.
+      return 1;
     default:
       return 1;
   }

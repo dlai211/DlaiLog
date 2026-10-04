@@ -5,8 +5,26 @@
 
 export type Category = 'condiment' | 'grocery' | 'misc';
 export type ProjectStatus = 'not-started' | 'in-progress' | 'done';
-/** Metric, countable, and the Imperial weights a US receipt uses. */
-export type Unit = 'ml' | 'L' | 'g' | 'kg' | 'pcs' | 'pack' | 'lb' | 'oz' | 'bag';
+/**
+ * Metric, countable, the Imperial weights a US receipt uses, the measures a
+ * recipe uses (tbsp, tsp, clove, stalk), and `qty` for anything that has no
+ * better unit — "1 qty" simply means one of them.
+ */
+export type Unit =
+  | 'ml'
+  | 'L'
+  | 'g'
+  | 'kg'
+  | 'pcs'
+  | 'pack'
+  | 'bag'
+  | 'lb'
+  | 'oz'
+  | 'tbsp'
+  | 'tsp'
+  | 'clove'
+  | 'stalk'
+  | 'qty';
 
 /** A weekly pattern, e.g. every Tuesday and Thursday. */
 export interface TaskRepeat {
@@ -96,6 +114,12 @@ export interface Ingredient {
   /** Current amount in stock. */
   quantity: number;
   unit: Unit;
+  /**
+   * What a full stock bar means: how much of this the pantry holds when it has
+   * just been stocked. Set when an item is created or topped up; missing on
+   * older rows, which fall back to the last purchase's amount.
+   */
+  capacity?: number;
   createdAt: string;
   updatedAt: string;
 }

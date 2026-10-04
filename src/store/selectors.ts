@@ -641,6 +641,31 @@ export function isOutOfStock(item: Ingredient): boolean {
   return item.quantity <= 0;
 }
 
+/**
+ * What a full bar means for an item: how much it holds when it has just been
+ * stocked. Items saved before the pantry tracked this fall back to what the
+ * last purchase bought — so two eggs left out of a bought eighteen reads as
+ * nearly empty, not as full.
+ */
+export function stockCapacity(item: Ingredient, lastPurchase?: Purchase): number {
+  if (item.capacity && item.capacity > 0) return item.capacity;
+  if (lastPurchase && lastPurchase.amount > 0) return lastPurchase.amount;
+  return item.quantity > 0 ? item.quantity : 1;
+}
+
+/** How much of the item is left, as 0–100 — the pantry's level bar. */
+export function stockLevel(item: Ingredient, lastPurchase?: Purchase): number {
+  if (item.quantity <= 0) return 0;
+  const capacity = stockCapacity(item, lastPurchase);
+  // A sliver stays visible while anything at all is left.
+  return Math.min(100, Math.max(4, (item.quantity / capacity) * 100));
+}
+
+/** The capacity to store after stocking up: the most this item has held. */
+export function nextCapacity(item: Ingredient, nextQuantity: number): number {
+  return Math.max(item.capacity ?? item.quantity, nextQuantity);
+}
+
 /** The most recent purchase of an item, for "last bought / last price" lines. */
 export function lastPurchaseFor(purchases: Purchase[], itemKey: string): Purchase | undefined {
   return purchases
@@ -704,6 +729,7 @@ export function purchaseStockChange(
         category: purchase.category,
         quantity: purchase.amount,
         unit: purchase.unit,
+        capacity: purchase.amount,
       },
     };
   }
@@ -719,6 +745,7 @@ export function purchaseStockChange(
       patch: {
         quantity: purchase.amount,
         unit: purchase.unit,
+        capacity: purchase.amount,
         imageKey: purchase.imageKey ?? existing.imageKey,
         icon: purchase.icon ?? existing.icon,
         category: purchase.category,
@@ -736,6 +763,7 @@ export function purchaseStockChange(
         key: targetKey,
         patch: {
           quantity: nextQuantity,
+          capacity: nextCapacity(existing, nextQuantity),
           imageKey: purchase.imageKey ?? existing.imageKey,
           icon: purchase.icon ?? existing.icon,
         },

@@ -705,3 +705,35 @@ and wired in (37 pictures, 364 KB):
 - [x] The name guesser now only counts a keyword as a phrase match when it covers a real share of
       the name — so "Signature Select Oil Vegetable" finds the oil bottle rather than the greens
       tile, while "Kikkoman soya sauce" still finds the soy sauce
+
+## 31. Pantry levels, dragging with a mouse, and more units
+
+**The stock bar now measures against a full pantry** (it used to compare the quantity with four
+"steps", so anything above that looked full — 2 eggs left of 18 showed a full bar):
+
+- [x] `Ingredient.capacity` records what a full bar means: set when an item is first stocked
+      (a purchase, a hand-added item), raised when the item is topped up, and left alone when it
+      is used, so the bar falls as the pantry empties and returns to full when the item is
+      bought again
+- [x] Rows saved before this existed fall back to the **last purchase's amount**, so an old
+      "2 of 18 eggs" row reads as nearly empty straight away (11%), with no migration needed
+- [x] 0 stays 0 (out of stock), a sliver stays visible while anything is left, and nothing ever
+      exceeds a full bar
+
+**Dragging a suggestion into the shopping cart works with a mouse** (before, the row could not
+leave its box):
+
+- [x] The handle and the dragged row are `userSelect: 'none'` — the browser was starting a *text
+      selection* on the first mouse move, which cancelled the gesture and snapped the row back.
+      This was the real cause; the same fix covers dragging on any desktop browser
+- [x] The cart **lights up while the pointer is over it** (the drop target is checked on every
+      move, not only on release)
+- [x] The cart re-measures itself when a drag starts, so a page scrolled since it was laid out
+      is still tested against its real position
+- [x] The handle shows a grab cursor, and the row shows a grabbing one, so it reads as draggable
+- [x] A new browser test drags right across the gap between the two cards, checks the cart lights
+      up, checks the drop lands, and asserts the browser selected **no** text along the way
+
+**More units** — `tbsp`, `tsp`, `clove`, `stalk` and a catch-all `qty` ("1 Qty" for anything with
+no better unit) are available everywhere units are chosen: meals, purchases, the shopping trip
+form and the pantry.

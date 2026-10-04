@@ -204,3 +204,16 @@ describe('Meals — ingredient pictures', () => {
     });
   });
 });
+
+describe('Meals — ingredient units', () => {
+  it('offers the cooking measures and the catch-all when adding a meal', async () => {
+    await renderScreen(<MealsScreen />);
+    fireEvent.press(screen.getByTestId('new-meal'));
+
+    fireEvent.press(screen.getByTestId('meal-ingredient-unit-0'));
+
+    for (const unit of ['tbsp', 'tsp', 'clove', 'stalk', 'qty']) {
+      expect(screen.getByTestId(`meal-ingredient-unit-0-option-${unit}`)).toBeOnTheScreen();
+    }
+  });
+});

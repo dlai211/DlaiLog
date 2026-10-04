@@ -14,7 +14,12 @@ import { useToast } from '@/components/ui/toast';
 import { newId } from '@/lib/id';
 import { ALBERTSONS_STORE, ALBERTSONS_TRIP_DATE, buildAlbertsonsTrip, buildSampleDB } from '@/store/sample-data';
 import { loadDB, saveDB } from '@/store/storage';
-import { normalizeItemName, purchaseStockChange, type PurchaseStockChange } from '@/store/selectors';
+import {
+  nextCapacity,
+  normalizeItemName,
+  purchaseStockChange,
+  type PurchaseStockChange,
+} from '@/store/selectors';
 import {
   emptyDB,
   isEmptyDB,
@@ -362,7 +367,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addIngredient = useCallback(
     (input: NewIngredient) => {
       const stamp = nowISO();
-      const ingredient: Ingredient = { ...input, id: newId(), createdAt: stamp, updatedAt: stamp };
+      const ingredient: Ingredient = {
+        ...input,
+        // Adding something by hand says how much "full" is for it.
+        capacity: input.capacity ?? input.quantity,
+        id: newId(),
+        createdAt: stamp,
+        updatedAt: stamp,
+      };
       mutate((current) => ({ ...current, inventory: [...current.inventory, ingredient] }));
       return ingredient;
     },
@@ -373,9 +385,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (id: string, patch: Partial<Omit<Ingredient, 'id'>>) => {
       mutate((current) => ({
         ...current,
-        inventory: current.inventory.map((item) =>
-          item.id === id ? { ...item, ...patch, updatedAt: nowISO() } : item
-        ),
+        inventory: current.inventory.map((item) => {
+          if (item.id !== id) return item;
+          const updated = { ...item, ...patch, updatedAt: nowISO() };
+          // Editing the amount up counts as stocking up: a full bar becomes
+          // the new, larger amount.
+          return { ...updated, capacity: nextCapacity(item, updated.quantity) };
+        }),
       }));
     },
     [mutate]
@@ -395,15 +411,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (id: string, delta: number) => {
       mutate((current) => ({
         ...current,
-        inventory: current.inventory.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                quantity: Math.max(0, Math.round((item.quantity + delta) * 100) / 100),
-                updatedAt: nowISO(),
-              }
-            : item
-        ),
+        inventory: current.inventory.map((item) => {
+          if (item.id !== id) return item;
+          const quantity = Math.max(0, Math.round((item.quantity + delta) * 100) / 100);
+          return {
+            ...item,
+            quantity,
+            // Adding by hand is stocking up; taking away leaves the bar's
+            // full mark where it is, which is the point of it.
+            capacity: delta > 0 ? nextCapacity(item, quantity) : (item.capacity ?? item.quantity),
+            updatedAt: nowISO(),
+          };
+        }),
       }));
     },
     [mutate]

@@ -30,6 +30,7 @@ import {
   findInventoryItem,
   isOutOfStock,
   lastPurchaseFor,
+  stockLevel,
   shoppingCounts,
   shoppingSuggestions,
   sortInventory,
@@ -213,6 +214,11 @@ export default function InventoryScreen() {
                         sourceLabel: suggestion.sourceLabel,
                       })
                     }
+                    onDragStart={measureCart}
+                    onDragMove={(point) => {
+                      // Light the cart up the moment the pointer is over it.
+                      cartContains(point.x, point.y);
+                    }}
                     onDrop={(point) => {
                       if (cartContains(point.x, point.y)) {
                         addToCart({
@@ -300,16 +306,6 @@ export default function InventoryScreen() {
   );
 }
 
-/**
- * How full the stock bar is drawn: the quantity measured against four
- * "steps" of the item (a step being what the +/− buttons move), so a bar is
- * full when there is plenty and empty when it has run out.
- */
-function stockLevel(item: Ingredient, step: number): number {
-  if (item.quantity <= 0) return 0;
-  return Math.max(6, Math.min(100, (item.quantity / (step * 4)) * 100));
-}
-
 function StockRow({
   item,
   lastBought,
@@ -351,12 +347,13 @@ function StockRow({
           </ThemedText>
         )}
 
-        {/* How much is left, in the item's category colour. */}
+        {/* How much is left against what a full pantry of this item holds,
+            in the item's category colour. */}
         <View style={[styles.stockTrack, { backgroundColor: theme.backgroundSelected }]}>
           <View
             testID={`stock-level-${item.id}`}
             style={{
-              width: `${stockLevel(item, step)}%`,
+              width: `${stockLevel(item, lastBought)}%`,
               backgroundColor: isOutOfStock(item)
                 ? theme.danger
                 : theme[CATEGORY_META[item.category].colorKey],
@@ -407,10 +404,16 @@ function StockRow({
 function SuggestionRow({
   suggestion,
   onAdd,
+  onDragStart,
+  onDragMove,
   onDrop,
 }: {
   suggestion: ShoppingSuggestion;
   onAdd: () => void;
+  /** Called as the drag begins, so the cart can measure itself afresh. */
+  onDragStart: () => void;
+  /** Called as the pointer moves, so the cart lights up under it. */
+  onDragMove: (point: { x: number; y: number }) => void;
   onDrop: (point: { x: number; y: number }) => void;
 }) {
   const theme = useTheme();
@@ -418,6 +421,8 @@ function SuggestionRow({
   return (
     <Draggable
       testID={`suggestion-${suggestion.key}`}
+      onDragStart={onDragStart}
+      onDragMove={onDragMove}
       onDrop={onDrop}
       renderHandle={(handleProps) => (
         // The grab area: dragging starts here, so the row's own buttons keep

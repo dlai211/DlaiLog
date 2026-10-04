@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, StyleSheet, View, type View as ViewType } from 'react-native';
+import {
+  Animated,
+  StyleSheet,
+  View,
+  type View as ViewType,
+  type ViewStyle,
+} from 'react-native';
 
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -16,6 +22,13 @@ import { isPointInsideRect, type Rect } from '@/lib/geometry';
  *
  * The target measures itself in window coordinates; releasing inside those
  * bounds counts as a drop, and the target lights up while the pointer is over it.
+ *
+ * Two web details matter for this to work at all with a mouse:
+ *   - the handle and the row must be `userSelect: 'none'`, or the browser
+ *     starts selecting the text under the pointer instead, which cancels the
+ *     responder and snaps the row back the moment it leaves its box;
+ *   - the target re-measures when a drag starts, so a page that has been
+ *     scrolled since it was laid out is still tested against its real bounds.
  */
 
 export interface DropZone {
@@ -80,11 +93,17 @@ interface PointerLike {
  */
 export function Draggable({
   onDrop,
+  onDragStart,
+  onDragMove,
   renderHandle,
   children,
   testID,
 }: {
   onDrop: (point: { x: number; y: number }) => void;
+  /** Called when a drag begins — the drop target re-measures itself here. */
+  onDragStart?: () => void;
+  /** Called as the pointer moves, so the target can light up under it. */
+  onDragMove?: (point: { x: number; y: number }) => void;
   renderHandle: (handleProps: DragHandleProps) => ReactNode;
   children: ReactNode;
   testID?: string;
@@ -107,6 +126,7 @@ export function Draggable({
       onStartShouldSetResponder: () => true,
       onMoveShouldSetResponder: () => true,
       onResponderGrant: (event) => {
+        onDragStart?.();
         setGrabPoint({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
         setDragging(true);
       },
@@ -117,6 +137,7 @@ export function Draggable({
           x: event.nativeEvent.pageX - grabPoint.x,
           y: event.nativeEvent.pageY - grabPoint.y,
         });
+        onDragMove?.({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
       },
       onResponderRelease: (event) => {
         onDrop({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
@@ -124,7 +145,7 @@ export function Draggable({
       },
       onResponderTerminate: () => settle(),
     }),
-    [grabPoint, onDrop, pan, settle]
+    [grabPoint, onDragMove, onDragStart, onDrop, pan, settle]
   );
 
   return (
@@ -141,6 +162,7 @@ export function Draggable({
               borderColor: dragging ? theme.primary : theme.border,
               backgroundColor: dragging ? theme.backgroundSelected : 'transparent',
             },
+            dragging ? GRABBING_CURSOR : GRAB_CURSOR,
           ]}>
           {renderHandle(handleProps)}
           {children}
@@ -166,5 +188,13 @@ const styles = StyleSheet.create({
     borderRadius: Radius.medium,
     paddingVertical: Spacing.oneHalf,
     paddingHorizontal: Spacing.two,
+    // Without this the browser selects the text under the pointer as soon as
+    // the mouse moves, which takes the gesture away from the row.
+    userSelect: 'none',
   },
 });
+
+// `cursor` is a react-native-web style (React Native itself ignores it), and
+// this version's types do not know it — hence the casts.
+const GRAB_CURSOR = { cursor: 'grab' } as unknown as ViewStyle;
+const GRABBING_CURSOR = { cursor: 'grabbing' } as unknown as ViewStyle;

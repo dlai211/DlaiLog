@@ -11,6 +11,7 @@ import {
   homeSummary,
   ingredientNameSuggestions,
   isOutOfStock,
+  nextCapacity,
   isTaskDoneOn,
   itemMemory,
   itemSuggestions,
@@ -27,11 +28,13 @@ import {
   overdueOccurrences,
   projectDueLabel,
   purchaseStockChange,
+  stockCapacity,
   recentTileKeys,
   shoppingCounts,
   shoppingSuggestions,
   sortInventory,
   sortProjects,
+  stockLevel,
   storeSuggestions,
   storesInUse,
   taskOccursOn,
@@ -885,5 +888,60 @@ describe('shoppingSuggestions', () => {
         { ...base, id: 's3', name: 'C', key: 'c', done: false },
       ])
     ).toEqual({ open: 2, done: 1 });
+  });
+});
+
+describe('the pantry’s stock level', () => {
+  const eggs = makeIngredient({
+    id: 'eggs',
+    name: 'Eggs',
+    key: 'eggs',
+    quantity: 2,
+    unit: 'pcs',
+    capacity: 18,
+  });
+
+  it('measures what is left against what a full pantry of that item holds', () => {
+    expect(stockLevel(eggs)).toBeCloseTo(11.1, 1);
+    expect(stockLevel({ ...eggs, quantity: 18 })).toBe(100);
+    expect(stockLevel({ ...eggs, quantity: 0 })).toBe(0);
+  });
+
+  it('keeps a sliver visible while anything at all is left', () => {
+    expect(stockLevel({ ...eggs, quantity: 0.01 })).toBe(4);
+  });
+
+  it('never goes past full, however much is in stock', () => {
+    expect(stockLevel({ ...eggs, quantity: 40 })).toBe(100);
+  });
+
+  it('falls back to the last purchase for rows saved before capacities existed', () => {
+    const older = { ...eggs, capacity: undefined };
+    const bought = makePurchase({ id: 'pu1', itemName: 'Eggs', amount: 18, unit: 'pcs' });
+
+    expect(stockCapacity(older, bought)).toBe(18);
+    expect(stockLevel(older, bought)).toBeCloseTo(11.1, 1);
+    // With no history at all, the item is its own reference — a full bar.
+    expect(stockLevel(older)).toBe(100);
+  });
+
+  it('raises the capacity only when stocking up', () => {
+    expect(nextCapacity(eggs, 6)).toBe(18); // using it up changes nothing
+    expect(nextCapacity(eggs, 24)).toBe(24); // a bigger shop resets the bar
+    expect(nextCapacity({ ...eggs, capacity: undefined }, 5)).toBe(5);
+  });
+
+  it('gives a purchase-created row its capacity', () => {
+    const purchase = makePurchase({ id: 'pu2', itemName: 'Eggs', amount: 18, unit: 'pcs' });
+    const change = purchaseStockChange([], purchase, 1);
+
+    expect(change?.create).toMatchObject({ quantity: 18, capacity: 18 });
+  });
+
+  it('raises the capacity when a purchase tops the item up', () => {
+    const purchase = makePurchase({ id: 'pu3', itemName: 'Eggs', amount: 12, unit: 'pcs' });
+    const change = purchaseStockChange([eggs], purchase, 1);
+
+    expect(change?.patch).toMatchObject({ quantity: 14, capacity: 18 });
   });
 });

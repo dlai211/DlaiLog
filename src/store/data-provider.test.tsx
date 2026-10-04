@@ -634,3 +634,57 @@ describe('the one-time Albertsons import', () => {
     expect(latest!.db.purchases).toHaveLength(14);
   });
 });
+
+describe('what a full stock bar means', () => {
+  it('is set when a purchase first stocks an item', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addPurchase({
+        date: '2026-10-03',
+        itemName: 'Eggs',
+        imageKey: 'egg',
+        category: 'grocery',
+        amount: 18,
+        unit: 'pcs',
+        totalPrice: 4.29,
+        store: 'Albertsons',
+      });
+    });
+
+    expect(latest!.db.inventory[0]).toMatchObject({ quantity: 18, capacity: 18 });
+  });
+
+  it('rises when stocking up, and stays put when using the item', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addIngredient({
+        name: 'Eggs',
+        key: 'eggs',
+        imageKey: 'egg',
+        category: 'grocery',
+        quantity: 18,
+        unit: 'pcs',
+      });
+    });
+    const id = latest!.db.inventory[0].id;
+    expect(latest!.db.inventory[0].capacity).toBe(18);
+
+    await act(async () => {
+      latest!.adjustIngredientQuantity(id, -2);
+    });
+    expect(latest!.db.inventory[0]).toMatchObject({ quantity: 16, capacity: 18 });
+
+    await act(async () => {
+      latest!.adjustIngredientQuantity(id, 6);
+    });
+    expect(latest!.db.inventory[0]).toMatchObject({ quantity: 22, capacity: 22 });
+
+    // Editing the amount up is stocking up too.
+    await act(async () => {
+      latest!.updateIngredient(id, { quantity: 30 });
+    });
+    expect(latest!.db.inventory[0]).toMatchObject({ quantity: 30, capacity: 30 });
+  });
+});

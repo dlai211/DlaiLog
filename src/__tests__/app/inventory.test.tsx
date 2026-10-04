@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import InventoryScreen from '@/app/inventory';
 import { STORAGE_KEY } from '@/store/storage';
 import { renderScreen } from '@/test/helpers';
-import { emptyDB, type DB, type Ingredient, type Meal, type ShoppingItem } from '@/store/types';
+import { emptyDB, type DB, type Ingredient, type Meal, type Purchase, type ShoppingItem } from '@/store/types';
 
 function makeIngredient(overrides: Partial<Ingredient> = {}): Ingredient {
   const stamp = '2026-09-30T08:00:00.000Z';
@@ -18,6 +18,21 @@ function makeIngredient(overrides: Partial<Ingredient> = {}): Ingredient {
     unit: 'L',
     createdAt: stamp,
     updatedAt: stamp,
+    ...overrides,
+  };
+}
+
+function makePurchase(overrides: Partial<Purchase> = {}): Purchase {
+  return {
+    id: 'pu1',
+    date: '2026-10-01',
+    itemName: 'Eggs',
+    category: 'grocery',
+    amount: 1,
+    unit: 'pcs',
+    totalPrice: 4.29,
+    store: 'Albertsons',
+    createdAt: '2026-10-01T10:00:00.000Z',
     ...overrides,
   };
 }
@@ -228,11 +243,21 @@ describe('Inventory — shopping list', () => {
 });
 
 describe('Inventory — the stock level bar', () => {
-  it('shows how much is left, and empties when the item runs out', async () => {
+  it('measures what is left against what the item holds when full', async () => {
     await seed({
       inventory: [
-        makeIngredient({ id: 'plenty', name: 'Soy sauce', key: 'soy sauce', quantity: 10, unit: 'L' }),
-        makeIngredient({ id: 'some', name: 'Vinegar', key: 'vinegar', quantity: 0.5, unit: 'L' }),
+        // Two eggs left of the eighteen that were bought: a nearly empty bar.
+        makeIngredient({
+          id: 'eggs',
+          name: 'Eggs',
+          key: 'eggs',
+          imageKey: 'egg',
+          quantity: 2,
+          unit: 'pcs',
+          capacity: 18,
+        }),
+        // A full jar, and one that has run out.
+        makeIngredient({ id: 'full', name: 'Soy sauce', key: 'soy sauce', quantity: 1, unit: 'L' }),
         makeIngredient({
           id: 'none',
           name: 'Rice',
@@ -247,15 +272,40 @@ describe('Inventory — the stock level bar', () => {
 
     await renderScreen(<InventoryScreen />);
 
-    await waitFor(() => expect(screen.getByTestId('stock-level-plenty')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByTestId('stock-level-eggs')).toBeOnTheScreen());
 
-    const width = (id: string) => Number(/([\d.]+)%/.exec(
-      String(screen.getByTestId(`stock-level-${id}`).props.style.width)
-    )?.[1]);
+    const width = (id: string) =>
+      Number(
+        /([\d.]+)%/.exec(String(screen.getByTestId(`stock-level-${id}`).props.style.width))?.[1]
+      );
 
-    expect(width('plenty')).toBe(100); // a lot in the pantry: a full bar
-    expect(width('none')).toBe(0); // run out: an empty bar
-    expect(width('some')).toBeGreaterThan(0);
-    expect(width('some')).toBeLessThan(width('plenty'));
+    // 2 of 18 is about 11% — not a full bar, which was the complaint.
+    expect(width('eggs')).toBeCloseTo(11.1, 1);
+    expect(width('full')).toBe(100);
+    expect(width('none')).toBe(0);
+  });
+
+  it('falls back to the last purchase for a row saved before capacities existed', async () => {
+    await seed({
+      inventory: [
+        makeIngredient({ id: 'eggs', name: 'Eggs', key: 'eggs', quantity: 2, unit: 'pcs' }),
+      ],
+      purchases: [
+        makePurchase({
+          id: 'pu1',
+          itemName: 'Eggs',
+          category: 'grocery',
+          amount: 18,
+          unit: 'pcs',
+          totalPrice: 4.29,
+          store: 'Albertsons',
+        }),
+      ],
+    });
+
+    await renderScreen(<InventoryScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('stock-level-eggs')).toBeOnTheScreen());
+    expect(screen.getByTestId('stock-level-eggs')).toHaveStyle({ width: expect.stringMatching('11') });
   });
 });
