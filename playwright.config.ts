@@ -6,6 +6,10 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e',
+  // `live.spec.ts` is the one spec that writes to the real Supabase project,
+  // so it is left out unless it is asked for by name (`npm run test:live`).
+  // Everything else runs against the device alone and can be run any time.
+  testIgnore: process.env.DLAILOG_LIVE_TESTS === '1' ? [] : ['**/live.spec.ts'],
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,

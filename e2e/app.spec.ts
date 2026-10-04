@@ -11,10 +11,16 @@ import { expect, test } from '@playwright/test';
  * src/store/sample-data.ts). These tests want a store of their own making, so
  * they switch that off before the app loads — one key in local storage, set
  * before any script runs.
+ *
+ * The same for the cloud: since the data moved to Supabase (PRD §32) the app
+ * would otherwise write every one of these fixtures into the real database,
+ * and the tests would be at the mercy of whatever was already in it. One more
+ * key keeps the run on the device, exactly as it was before.
  */
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem('dlailog:no-seed', '1');
+    window.localStorage.setItem('dlailog:no-cloud', '1');
   });
 });
 

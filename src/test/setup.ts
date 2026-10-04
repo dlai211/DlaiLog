@@ -25,6 +25,12 @@ if (typeof globalThis.WebSocket === 'undefined') {
 // here, once, in a way no test can accidentally undo.
 process.env.EXPO_PUBLIC_DLAILOG_NO_SEED = '1';
 
+// Likewise the cloud: the suite runs against the storage on the device rather
+// than a live database. Without this, a test that opens the app would try to
+// reach Supabase — slow, and dependent on a network we do not control.
+// `src/store/cloud.test.ts` covers the cloud path by standing in a fake.
+process.env.EXPO_PUBLIC_DLAILOG_NO_CLOUD = '1';
+
 // The default 1s waitFor timeout is tight when many suites share a busy
 // machine; waiting longer changes nothing about *what* is asserted.
 configure({ asyncUtilTimeout: 5000 });

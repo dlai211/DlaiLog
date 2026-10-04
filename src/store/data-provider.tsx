@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -13,7 +14,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from '@/components/ui/toast';
 import { newId } from '@/lib/id';
 import { ALBERTSONS_STORE, ALBERTSONS_TRIP_DATE, buildAlbertsonsTrip, buildSampleDB } from '@/store/sample-data';
-import { loadDB, saveDB } from '@/store/storage';
+import { applyDiff, isCloudEnabled } from '@/store/cloud';
+import { diffRows, isEmptyDiff } from '@/store/diff';
+import { loadDatabase } from '@/store/load';
+import { dbToRows } from '@/store/rows';
+import { saveDB } from '@/store/storage';
 import {
   nextCapacity,
   normalizeItemName,
@@ -154,34 +159,80 @@ function withStockChange(current: DB, change: PurchaseStockChange | null): DB {
  * Holds the whole database in memory and saves it after every change.
  * Loading finishes before the first save can run, so an empty store can never
  * overwrite real data.
+ *
+ * Since the move to Supabase (PRD §32) a save does two things: it writes the
+ * whole database to this device, which is what keeps the app working with no
+ * network, and it sends *only what changed* to the cloud. Both sides of that
+ * comparison are rows (see `rows.ts`), so a value that means the same thing is
+ * never mistaken for an edit.
  */
 export function DataProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>(() => emptyDB());
   const [ready, setReady] = useState(false);
   const { showToast } = useToast();
 
+  /**
+   * The version the cloud is known to hold. A change is measured against
+   * this, and only moves it forward once the write has actually succeeded —
+   * so a save that fails is still waiting to be sent, rather than being
+   * quietly counted as done.
+   */
+  const syncedRef = useRef<DB>(emptyDB());
+  /**
+   * Cloud writes happen one at a time, in the order the changes were made.
+   * Without this, two quick edits could write at once and the later one could
+   * land first.
+   */
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
+
   useEffect(() => {
     let cancelled = false;
-    loadDB()
-      .then(async (loaded) => ({
-        loaded,
-        seed: await shouldSeed(loaded),
+    loadDatabase()
+      .then(async (result) => ({
+        result,
+        seed: await shouldSeed(result.db),
       }))
-      .then(({ loaded, seed }) => {
+      .then(({ result, seed }) => {
         if (cancelled) return;
-        setDb(seed ? buildSampleDB() : loaded);
+        // Seeding only happens when there was nothing to load, so what the
+        // cloud holds at that moment is the empty database.
+        syncedRef.current = seed ? emptyDB() : result.db;
+        setDb(seed ? buildSampleDB() : result.db);
         setReady(true);
+        if (result.warning) showToast(result.warning);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     if (!ready) return;
+
     saveDB(db).catch(() => {
       showToast("Could not save your changes — check the browser's storage settings.");
     });
+
+    if (!isCloudEnabled()) return;
+
+    queueRef.current = queueRef.current
+      .then(async () => {
+        const diff = diffRows(dbToRows(syncedRef.current), dbToRows(db));
+        if (isEmptyDiff(diff)) return;
+        await applyDiff(diff);
+        // Only now is the cloud known to match this version. A failure leaves
+        // this behind, so the next change — or the next launch — sends it
+        // again rather than losing it.
+        syncedRef.current = db;
+      })
+      .catch((error: unknown) => {
+        showToast(
+          'Could not save to the cloud — your changes are safe on this device ' +
+            `and will be sent when the connection is back. (${
+              error instanceof Error ? error.message : String(error)
+            })`,
+        );
+      });
   }, [db, ready, showToast]);
 
   const mutate = useCallback((updater: (current: DB) => DB) => {

@@ -13,6 +13,30 @@ function isServerPrerender(): boolean {
   return Platform.OS === 'web' && typeof window === 'undefined';
 }
 
+/**
+ * A switch that keeps the app off the network entirely (PRD §32).
+ *
+ * In the browser it can be set under `dlailog:no-cloud`, which is how the
+ * end-to-end tests run without writing their fixtures into the real database.
+ * It is also the honest answer for someone whose Supabase project is paused or
+ * unreachable and who just wants the app to work from what is on the device.
+ *
+ * Only the browser has this storage, so it is web-only by nature; a phone
+ * build decides with `EXPO_PUBLIC_DLAILOG_NO_CLOUD` instead.
+ */
+export const NO_CLOUD_KEY = 'dlailog:no-cloud';
+
+export function isCloudDisabledOnThisDevice(): boolean {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(NO_CLOUD_KEY) === '1';
+  } catch {
+    // Storage can be blocked entirely; a working app matters more than the
+    // switch.
+    return false;
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }

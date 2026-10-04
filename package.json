@@ -57,7 +57,8 @@
     "test:watch": "jest --watch",
     "test:e2e": "expo export --platform web && playwright test",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run lint && npm test"
+    "verify": "npm run typecheck && npm run lint && npm test",
+    "test:live": "node scripts/run-live-e2e.mjs"
   },
   "private": true
 }
