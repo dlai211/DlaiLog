@@ -1,0 +1,103 @@
+# Keeps the Supabase project from going to sleep (PRD §32, Phase 4).
+#
+# A free-tier Supabase project pauses after seven days with no activity, and a
+# paused project takes the app down with it until someone wakes it by hand.
+# This reads a single row every day, which is enough to count as activity.
+#
+# ── Setting it up ────────────────────────────────────────────────────────────
+#
+# Two repository secrets are needed (Settings → Secrets and variables →
+# Actions → New repository secret):
+#
+#   SUPABASE_URL  the project URL, e.g. https://abcdefgh.supabase.co
+#   SUPABASE_KEY  the **publishable** key, the one beginning `sb_publishable_`
+#
+# The publishable key is the right one: it is the key the app itself ships
+# with, and it is only allowed to do what the database's rules permit. The
+# database *password* must never be put here — it can do anything, and this
+# workflow has no reason to hold it.
+#
+# The workflow can be run on demand from the Actions tab, so there is no need
+# to wait a day to find out whether it works.
+
+name: Supabase keep-alive
+
+on:
+  schedule:
+    # Daily at 09:17 UTC. Deliberately not on the hour: every scheduled job
+    # that asks for "midnight" lands in the same queue, and GitHub runs late
+    # when the queue is long. An odd minute costs nothing and avoids the rush.
+    - cron: '17 9 * * *'
+  # A button in the Actions tab, for testing the setup without waiting.
+  workflow_dispatch:
+
+# One run at a time; nothing is gained by overlapping pings.
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Read one row
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check the secrets are set
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          missing=""
+          [ -z "$SUPABASE_URL" ] && missing="$missing SUPABASE_URL"
+          [ -z "$SUPABASE_KEY" ] && missing="$missing SUPABASE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secret(s):$missing"
+            echo "Add them under Settings → Secrets and variables → Actions." >&2
+            exit 1
+          fi
+          echo "Both secrets are present."
+
+      - name: Read a row from the projects table
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -o pipefail
+
+          # `limit=1` keeps it as small as it can be: the request itself is
+          # the point, not the answer.
+          status=$(curl --silent --show-error --max-time 30 \
+            --write-out '%{http_code}' --output /tmp/body \
+            "$SUPABASE_URL/rest/v1/projects?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY")
+
+          echo "Supabase answered HTTP $status"
+          echo "Body: $(cat /tmp/body)"
+
+          if [ "$status" != "200" ]; then
+            {
+              echo "### Keep-alive failed"
+              echo ""
+              echo "Supabase answered **HTTP $status**:"
+              echo ""
+              echo '```'
+              cat /tmp/body
+              echo '```'
+              echo ""
+              case "$status" in
+                401|403) echo "That usually means SUPABASE_KEY is wrong or is not the publishable key." ;;
+                404)     echo "That usually means SUPABASE_URL is wrong, or the projects table is missing." ;;
+                000)     echo "That means the request never got a reply — the project may already be paused." ;;
+              esac
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Supabase answered HTTP $status"
+            exit 1
+          fi
+
+          {
+            echo "### Keep-alive succeeded"
+            echo ""
+            echo "Read from the projects table at $(date -u '+%Y-%m-%d %H:%M UTC')."
+          } >> "$GITHUB_STEP_SUMMARY"

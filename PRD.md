@@ -847,5 +847,27 @@ interface.
       polyfill needing an `XMLHttpRequest` Node does not have. The live tests are Playwright's, and
       are left out of the ordinary browser run
 
-**Phase 4 (next) — the keep-alive.** A daily GitHub Action reads a single row so the free-tier
-project, which pauses after seven days of inactivity, never reaches that point.
+**Phase 4 — the keep-alive.** A free-tier Supabase project pauses after seven days with no
+activity, and a paused project takes the app down with it until someone wakes it by hand.
+`.github/workflows/supabase-keepalive.yml` reads a single row every day, which is enough to count
+as activity. It can also be run on demand from the Actions tab, so there is no need to wait a day
+to find out whether it works.
+
+- [x] Runs daily at 09:17 UTC — deliberately not on the hour, because every scheduled job that
+      asks for "midnight" lands in the same queue and GitHub runs late when the queue is long
+- [x] `limit=1` on the projects table: the request itself is the point, not the answer
+- [x] The two values come from repository secrets (`SUPABASE_URL`, `SUPABASE_KEY`) rather than
+      being written into the file. The key to use is the **publishable** one — the same key the
+      app ships with. The database password must never be put here: it can do anything, and this
+      workflow has no reason to hold it
+- [x] A missing secret fails immediately with a message naming which one is missing, and a failed
+      request explains itself: 401/403 means the key, 404 means the URL or the table, and no reply
+      at all means the project may already be paused. Verified against the real project — the
+      ping answers `HTTP 200`, and a deliberately wrong key answers `401 Invalid API key`
+- [x] Each run writes a short summary to the Actions page, so the history is readable without
+      opening logs
+
+**One thing to know about scheduled workflows on GitHub:** it disables them after 60 days in a
+repository with no new commits, and emails a warning when it does. Since the whole point here is to
+survive long quiet periods, that is worth remembering — a commit now and then (or pressing "Run
+workflow" from the Actions tab, which the workflow also allows) keeps it alive.
