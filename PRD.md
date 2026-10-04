@@ -737,3 +737,89 @@ leave its box):
 **More units** — `tbsp`, `tsp`, `clove`, `stalk` and a catch-all `qty` ("1 Qty" for anything with
 no better unit) are available everywhere units are chosen: meals, purchases, the shopping trip
 form and the pantry.
+
+## 32. Moving the data into the cloud (Supabase)
+
+Until now every record lived in one JSON blob in the browser's (or the phone's) own storage. That
+works, but it means the phone and the laptop each keep a separate copy, and clearing the browser
+data takes the lot. This moves the data to a hosted PostgreSQL database so one account sees the
+same app everywhere.
+
+The migration runs in four checkpoints, each one verified and committed before the next begins.
+Phases 1 and 2 are done.
+
+**Phase 1 — the client.** `src/lib/supabase.ts` holds the shared connection. It is created the
+first time something asks for it, so importing the module connects to nothing, and it throws a
+message naming `.env.example` when the project is not configured rather than failing somewhere
+confusing later.
+
+- [x] `@supabase/supabase-js` installed; the project URL and publishable key live in `.env`
+- [x] `.env` added to `.gitignore` — it previously listed only `.env*.local`, so a file named
+      exactly `.env` **would have been committed**. This was fixed before the file was created
+- [x] The database password is deliberately kept out of `.env` and out of the app entirely: it
+      sits in the git-ignored `.env.migration` and is read only by the schema-push script, because
+      it is a server secret and must never reach a browser or a phone
+- [x] Sign-in is switched off in all three places supabase-js looks for it (there is no login to
+      persist, refresh or recover), and a 15-second request timeout stops an offline phone waiting
+      on a socket forever
+- [x] Jest is given a WebSocket through the `ws` dev dependency: the client builds its realtime
+      half inside the constructor even though DlaiLog never subscribes to anything, and Node 20 has
+      no global WebSocket the way the browser and the phone do
+
+**Phase 2 — the schema.** Seven tables, one per list the app stores: `tasks`, `notes`, `projects`,
+`purchases`, `inventory`, `meals`, `shopping`.
+
+- [x] Every table has a `uuid` primary key defaulting to `gen_random_uuid()`, and `timestamptz`
+      defaults for its timestamps
+- [x] **No foreign keys, deliberately.** DlaiLog links its records by normalized name (`key`), not
+      by id — a purchase feeds the pantry item of the same name, and a shopping line remembers the
+      meal it came from by its label. Inventing relationships the app does not use would only
+      create ways to fail. `inventory.key` is unique, which is a genuine invariant: a purchase
+      matches a pantry row on it, so two rows for "Milk" would update only one
+- [x] Enumerations (category, status, unit, source) are `text` with a `CHECK`, not PostgreSQL
+      enum types. Both look identical to the app, but adding a unit stays a one-line change instead
+      of an `ALTER TYPE`
+- [x] Money is `numeric(12,2)` and quantities `numeric(12,3)` — never floating point, which would
+      drift on a receipt total
+- [x] A repeating task stays **one row**: `repeat_days` holds the weekdays it comes back on and
+      each completion accumulates in `done_dates`
+- [x] `meals.ingredients` is `jsonb`, because a meal's ingredient list belongs to the meal and is
+      never queried on its own
+- [x] Verified by reading and writing through the same REST API the app uses: dates and times come
+      back byte-identical to the app's `YYYY-MM-DD` and `HH:MM` strings, `numeric` arrives as a
+      JavaScript number rather than a string, `jsonb` arrives as an object, and an unknown unit is
+      refused with a 400
+- [x] `src/store/schema.test.ts` fails the build if the SQL's unit, category, status or source
+      list ever drifts from the app's own, or if RLS is switched on by habit. Proven by planting
+      `'furlong'` in the SQL and watching it fail
+
+**Two things about the connection are unusual, and both are deliberate:**
+
+- The direct connection string Supabase offers (`db.<ref>.supabase.co`) resolves to an **IPv6-only**
+  address, and this machine has no IPv6 route at all — a connection simply fails with
+  `EHOSTUNREACH`. The schema is applied through the IPv4 pooler instead
+  (`aws-0-us-west-2.pooler.supabase.com`), whose region was found by connecting to each candidate
+  in turn.
+- That pooler presents a certificate chain rooted in **Supabase's own certificate authority**,
+  which Node does not trust out of the box. The usual advice is to switch certificate checking off.
+  That was not done: it would mean sending the database password over a connection we had told
+  ourselves not to verify. Supabase's published root certificate is pinned instead
+  (`scripts/supabase-ca.crt`, `Supabase Root 2021 CA`, valid to 2031), so the connection is fully
+  verified *and* works.
+
+**Row Level Security is not enabled, and that is not an oversight.** With no sign-in, Supabase has
+no way to tell who is asking, so any RLS policy would have to allow everyone (pointless) or deny
+everyone (the app breaks). The consequence to understand: the publishable key ships inside the
+app, so anyone holding it can read and write every row. That is acceptable while the app only runs
+on your own machine, and it stops being acceptable the moment the web build is hosted somewhere
+public. "Let other people reach the app" and "no login" cannot both be true later; adding Supabase
+Auth is what makes RLS meaningful.
+
+**Phase 3 (next) — the data layer swap.** The app's storage layer is replaced: loading reads the
+seven tables and assembles them into the same database object the UI already renders, and saving
+diffs the change against what was last loaded so only the rows that actually changed are written.
+Every screen and component is left exactly as it is — including all sizing staying plain numbers.
+A local copy is kept so the app still opens with no network.
+
+**Phase 4 — the keep-alive.** A daily GitHub Action reads a single row so the free-tier project,
+which pauses after seven days of inactivity, never reaches that point.
