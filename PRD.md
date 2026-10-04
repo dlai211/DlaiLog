@@ -815,11 +815,37 @@ on your own machine, and it stops being acceptable the moment the web build is h
 public. "Let other people reach the app" and "no login" cannot both be true later; adding Supabase
 Auth is what makes RLS meaningful.
 
-**Phase 3 (next) — the data layer swap.** The app's storage layer is replaced: loading reads the
-seven tables and assembles them into the same database object the UI already renders, and saving
-diffs the change against what was last loaded so only the rows that actually changed are written.
-Every screen and component is left exactly as it is — including all sizing staying plain numbers.
-A local copy is kept so the app still opens with no network.
+**Phase 3 — the data layer swap.** The app now reads and writes the cloud database. No screen,
+component or style changed: every edit is underneath the data provider, and the 365 tests that
+already existed still pass untouched, which is the evidence that the swap is invisible from the
+interface.
 
-**Phase 4 — the keep-alive.** A daily GitHub Action reads a single row so the free-tier project,
-which pauses after seven days of inactivity, never reaches that point.
+- [x] The whole database is still one object in memory, and every action still just replaces it.
+      What changed is what happens next: it is written to the device (which is what keeps the app
+      working with no network) and **only the rows that actually changed** are sent to the cloud
+- [x] Loading reads the seven tables and assembles them into the same object the screens already
+      render. A failed read falls back to the device's copy rather than opening empty — and is
+      never mistaken for "the cloud is empty", which would have uploaded the device's data over
+      the real thing
+- [x] **The first launch after the switch uploads what was already there.** If the database is
+      empty while this device has real data, the device's copy is sent up first, so nothing looks
+      like it vanished
+- [x] Writes go one at a time, in the order they were made, and the "known synced" version only
+      moves forward once a write has actually succeeded. A save that fails is still waiting to be
+      sent, so nothing is silently lost, and the user is told their changes are safe on the device
+- [x] Translating between the app's records and the database's rows is one file
+      (`src/store/rows.ts`) and is pure, so it is tested without a database. The property that
+      matters is asserted directly: a record that goes up comes back identical, so a save that
+      follows a load has nothing to write
+- [x] Working out what changed is another pure file (`src/store/diff.ts`). Comparing *rows* rather
+      than records means a value that merely means the same thing is never mistaken for an edit
+- [x] `npm run test:live` drives the real app in a real browser against the real project and
+      proves it end to end: a task is written, every byte of browser storage is then wiped and the
+      page reloaded, and the task is still there — so it can only have come from the database. A
+      second browser with nothing stored sees the same task, and deleting removes the row
+- [x] Live verification could not stay in Jest: React Native's preset replaces `fetch` with a
+      polyfill needing an `XMLHttpRequest` Node does not have. The live tests are Playwright's, and
+      are left out of the ordinary browser run
+
+**Phase 4 (next) — the keep-alive.** A daily GitHub Action reads a single row so the free-tier
+project, which pauses after seven days of inactivity, never reaches that point.
