@@ -60,17 +60,23 @@ async function sweep(request: import('@playwright/test').APIRequestContext) {
   }
 }
 
-/** Adds a marked task through the interface, the way a person would. */
+/** The row for the marked task, found by its text rather than by its id. */
+function markedRow(page: import('@playwright/test').Page) {
+  return page.locator('[data-testid^="task-row-"]').filter({ hasText: MARKER });
+}
+
+/**
+ * Adds a marked task through the interface, the way a person would, and waits
+ * for it to appear. Saving is asynchronous — the row is written to the device
+ * at once but sent to Supabase separately — so a test that carried on
+ * immediately would be racing the write it is trying to check.
+ */
 async function addMarkedTask(page: import('@playwright/test').Page) {
   await page.getByTestId('nav-todo').click();
   await page.getByTestId('new-task').click();
   await page.getByTestId('task-title-input').fill(MARKER);
   await page.getByTestId('task-save').click();
-}
-
-/** The row for the marked task, found by its text rather than by its id. */
-function markedRow(page: import('@playwright/test').Page) {
-  return page.locator('[data-testid^="task-row-"]').filter({ hasText: MARKER });
+  await expect(markedRow(page)).toHaveCount(1);
 }
 
 test.beforeEach(async ({ page, request }) => {
@@ -92,10 +98,11 @@ test('the app writes to Supabase, and reads it back with the browser emptied', a
   test.skip(!SUPABASE_URL, 'No Supabase project configured.');
 
   await page.goto('/');
-  await expect(page.getByText('DlaiLog')).toBeVisible();
+  // The sidebar, not `getByText('DlaiLog')` — the home page also shows
+  // "DlaiLog App", and matching both is an error rather than a match.
+  await expect(page.getByTestId('app-shell-sidebar')).toBeVisible();
 
   await addMarkedTask(page);
-  await expect(markedRow(page)).toHaveCount(1);
 
   // It reached the database, not just the screen.
   await expect.poll(() => markedRows(request, 'tasks', 'title')).toBe(1);
@@ -108,6 +115,64 @@ test('the app writes to Supabase, and reads it back with the browser emptied', a
   // Still there — which can only mean it came back from the database.
   await expect(markedRow(page)).toHaveCount(1);
   await expect(markedRow(page)).toContainText(MARKER);
+});
+
+test('a new task is saved as a proper UUID, not the id that used to be rejected', async ({
+  page,
+  request,
+}) => {
+  test.skip(!SUPABASE_URL, 'No Supabase project configured.');
+
+  await page.goto('/');
+  await addMarkedTask(page);
+
+  // The regression this file exists for: an id like `id-muuau264-wl8l4ss9`
+  // made PostgreSQL refuse the whole row (`22P02 invalid input syntax for
+  // type uuid`), so nothing was saved and the app showed a sync error. If
+  // that came back, nothing would arrive here at all.
+  await expect.poll(() => markedRows(request, 'tasks', 'title')).toBeGreaterThan(0);
+
+  // And what arrived is a real UUID, which is the part that used to fail.
+  const response = await request.get(
+    `${SUPABASE_URL}/rest/v1/tasks?title=eq.${MARKER}&select=id`,
+    { headers: authHeaders() },
+  );
+  const rows = (await response.json()) as { id: string }[];
+  expect(rows.length).toBeGreaterThan(0);
+  for (const row of rows) {
+    expect(row.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  }
+});
+
+test('a new purchase is saved, and so is the pantry row it fills', async ({ page, request }) => {
+  test.skip(!SUPABASE_URL, 'No Supabase project configured.');
+
+  await page.goto('/spending');
+  await page.getByTestId('new-purchase').click();
+  await page.getByTestId('purchase-name').fill(MARKER);
+  // A picture is required, along with an amount and a price — the app refuses
+  // to save without them, which is why this fills the form properly rather
+  // than only the fields the test cares about.
+  await page.getByTestId('purchase-picture-search').fill('coffee');
+  await page.getByTestId('purchase-picture-option-coffee').click();
+  await page.getByTestId('purchase-amount').fill('2');
+  await page.getByTestId('purchase-total').fill('7.50');
+  await page.getByTestId('purchase-store').fill('LiveMart');
+  await page.getByTestId('purchase-save').click();
+
+  await expect(page.getByText(MARKER).first()).toBeVisible();
+
+  // The purchase reached the database...
+  await expect.poll(() => markedRows(request, 'purchases', 'item_name')).toBe(1);
+
+  // ...and so did the pantry row it filled. That is a second table written in
+  // the same action, and so a second chance to get an id wrong.
+  await expect.poll(() => markedRows(request, 'inventory', 'name')).toBe(1);
+
+  // Reloading with nothing stored proves both came back from the database.
+  await page.evaluate(() => window.localStorage.clear());
+  await page.reload();
+  await expect(page.getByText(MARKER).first()).toBeVisible();
 });
 
 test('a task added on one device appears on another', async ({ browser, request }) => {

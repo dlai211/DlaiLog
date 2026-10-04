@@ -15,7 +15,7 @@ import {
   type TaskRow,
 } from '@/store/rows';
 import { buildSampleDB } from '@/store/sample-data';
-import type { Ingredient, Meal, Project, Purchase, Task } from '@/store/types';
+import type { DB, Ingredient, Meal, Project, Purchase, Task } from '@/store/types';
 
 /**
  * The property that the whole cloud layer rests on: a record that goes up and
@@ -202,7 +202,7 @@ describe('the repeating-task fields', () => {
 describe('the other lists', () => {
   it('keeps a project', () => {
     const project: Project = {
-      id: 'p1',
+      id: '1f0a5c2e-1111-4222-8333-444455556666',
       name: 'Kitchen',
       status: 'in-progress',
       progress: 40,
@@ -215,7 +215,7 @@ describe('the other lists', () => {
 
   it('keeps money as a number, never a string', () => {
     const purchase: Purchase = {
-      id: 'p1',
+      id: '2f0a5c2e-1111-4222-8333-444455556666',
       date: '2026-10-03',
       itemName: 'Milk',
       category: 'grocery',
@@ -237,7 +237,7 @@ describe('the other lists', () => {
 
   it('keeps a pantry item and what a full bar means', () => {
     const item: Ingredient = {
-      id: 'i1',
+      id: '3f0a5c2e-1111-4222-8333-444455556666',
       name: 'Eggs',
       key: 'eggs',
       category: 'grocery',
@@ -253,7 +253,7 @@ describe('the other lists', () => {
 
   it('keeps a meal, including the ingredients inside it', () => {
     const meal: Meal = {
-      id: 'm1',
+      id: '4f0a5c2e-1111-4222-8333-444455556666',
       name: 'Congee',
       ingredients: [{ id: 'x', name: 'Rice', key: 'rice', amount: 1, unit: 'kg' }],
       steps: 'Simmer.',
@@ -298,5 +298,61 @@ describe('the other lists', () => {
   it('keeps a note', () => {
     const row = { id: 'n1', text: 'Buy stamps', created_at: '2026-10-04T00:00:00.000Z' };
     expect(rowToNote(row)).toEqual({ id: 'n1', text: 'Buy stamps', createdAt: '2026-10-04T00:00:00.000Z' });
+  });
+});
+
+describe('records saved before ids were UUIDs', () => {
+  // Ids used to be `id-…` when the runtime had no `crypto.randomUUID`, which
+  // PostgreSQL rejects outright (`22P02`). Those records must still be able to
+  // sync, so their id is converted on the way to the database.
+  const LEGACY = 'id-muuau264-wl8l4ss9';
+  const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  const legacyDb: DB = {
+    ...buildSampleDB(),
+    tasks: [
+      { id: LEGACY, title: 'Old task', date: '2026-10-04', done: false, createdAt: '2026-10-04T00:00:00.000Z' },
+    ],
+    notes: [{ id: 'id-note-1', text: 'Old note', createdAt: '2026-10-04T00:00:00.000Z' }],
+  };
+
+  it('gives every one of them an id the database accepts', () => {
+    const rows = dbToRows(legacyDb);
+    expect(rows.tasks[0].id).toMatch(UUID_SHAPE);
+    expect(rows.notes[0].id).toMatch(UUID_SHAPE);
+    expect(rows.tasks[0].id).not.toBe(LEGACY);
+  });
+
+  it('does not disturb the records that were already fine', () => {
+    const rows = dbToRows(legacyDb);
+    // Everything except the two replaced above came from the sample data,
+    // which uses real UUIDs.
+    expect(rows.purchases[0].id).toBe(legacyDb.purchases[0].id);
+  });
+
+  it('converts the same way every time, so saving changes nothing', () => {
+    // The important one: the app works out what to write by comparing records
+    // against the last saved version. A conversion that differed between
+    // passes would delete and re-insert an untouched row on every save.
+    const first = dbToRows(legacyDb);
+    const second = dbToRows(legacyDb);
+    expect(second).toEqual(first);
+  });
+
+  it('survives a trip through the database without changing again', () => {
+    const rows = dbToRows(legacyDb);
+    // Once converted, the id is a UUID, so the next pass leaves it alone.
+    expect(dbToRows(rowsToDb(rows))).toEqual(rows);
+  });
+
+  it('keeps two legacy records apart', () => {
+    const rows = dbToRows({
+      ...legacyDb,
+      notes: [
+        { id: 'id-note-1', text: 'One', createdAt: '2026-10-04T00:00:00.000Z' },
+        { id: 'id-note-2', text: 'Two', createdAt: '2026-10-04T00:00:00.000Z' },
+      ],
+    });
+    expect(rows.notes[0].id).not.toBe(rows.notes[1].id);
   });
 });

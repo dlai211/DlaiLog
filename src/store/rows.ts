@@ -23,6 +23,7 @@
  * lets the whole translation be tested without a database.
  */
 
+import { toUuid } from '@/lib/id';
 import {
   emptyDB,
   type Category,
@@ -174,7 +175,7 @@ function optionalList<T>(value: T[] | null | undefined): T[] | undefined {
 
 export function taskToRow(task: Task): TaskRow {
   return {
-    id: task.id,
+    id: toUuid(task.id),
     title: task.title,
     date: task.date,
     time: task.time ?? null,
@@ -208,7 +209,7 @@ export function rowToTask(row: TaskRow): Task {
 // --- notes ------------------------------------------------------------------
 
 export function noteToRow(note: Note): NoteRow {
-  return { id: note.id, text: note.text, created_at: note.createdAt };
+  return { id: toUuid(note.id), text: note.text, created_at: note.createdAt };
 }
 
 export function rowToNote(row: NoteRow): Note {
@@ -219,7 +220,7 @@ export function rowToNote(row: NoteRow): Note {
 
 export function projectToRow(project: Project): ProjectRow {
   return {
-    id: project.id,
+    id: toUuid(project.id),
     name: project.name,
     description: project.description ?? null,
     status: project.status,
@@ -249,7 +250,7 @@ export function rowToProject(row: ProjectRow): Project {
 
 export function purchaseToRow(purchase: Purchase): PurchaseRow {
   return {
-    id: purchase.id,
+    id: toUuid(purchase.id),
     date: purchase.date,
     item_name: purchase.itemName,
     image_key: purchase.imageKey ?? null,
@@ -285,7 +286,7 @@ export function rowToPurchase(row: PurchaseRow): Purchase {
 
 export function ingredientToRow(item: Ingredient): IngredientRow {
   return {
-    id: item.id,
+    id: toUuid(item.id),
     name: item.name,
     key: item.key,
     image_key: item.imageKey ?? null,
@@ -319,7 +320,7 @@ export function rowToIngredient(row: IngredientRow): Ingredient {
 
 export function mealToRow(meal: Meal): MealRow {
   return {
-    id: meal.id,
+    id: toUuid(meal.id),
     name: meal.name,
     photo: meal.photo ?? null,
     ingredients: meal.ingredients,
@@ -350,7 +351,7 @@ export function rowToMeal(row: MealRow): Meal {
 
 export function shoppingToRow(item: ShoppingItem): ShoppingRow {
   return {
-    id: item.id,
+    id: toUuid(item.id),
     name: item.name,
     key: item.key,
     amount: item.amount ?? null,

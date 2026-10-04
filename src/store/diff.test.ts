@@ -3,13 +3,22 @@ import { dbToRows, rowsToDb, type RowSet } from '@/store/rows';
 import { buildSampleDB } from '@/store/sample-data';
 import type { DB, Task } from '@/store/types';
 
+/**
+ * Real UUIDs, because that is what the app produces and what the database
+ * accepts. Anything else is converted on its way out by `rows.ts`, which
+ * would make these assertions about something other than what they mean to
+ * test.
+ */
+const TASK_ID = 'a1b2c3d4-0000-4000-8000-000000000001';
+const OTHER_ID = 'a1b2c3d4-0000-4000-8000-000000000002';
+
 const base = buildSampleDB();
 const rowsOf = (db: DB): RowSet => dbToRows(db);
 const withExtraTask = (task: Task): DB => ({ ...base, tasks: [...base.tasks, task] });
 
 function aTask(overrides: Partial<Task> = {}): Task {
   return {
-    id: 'task-1',
+    id: TASK_ID,
     title: 'Water the plants',
     date: '2026-10-04',
     done: false,
@@ -61,7 +70,7 @@ describe('a record is edited', () => {
     const before = withExtraTask(aTask());
     const after: DB = {
       ...before,
-      tasks: before.tasks.map((task) => (task.id === 'task-1' ? { ...task, title: 'Water the ferns' } : task)),
+      tasks: before.tasks.map((task) => (task.id === TASK_ID ? { ...task, title: 'Water the ferns' } : task)),
     };
 
     const diff = diffRows(rowsOf(before), rowsOf(after));
@@ -74,7 +83,7 @@ describe('a record is edited', () => {
     const before = withExtraTask(aTask({ note: 'the big one by the door' }));
     const after: DB = {
       ...before,
-      tasks: before.tasks.map((task) => (task.id === 'task-1' ? { ...task, note: undefined } : task)),
+      tasks: before.tasks.map((task) => (task.id === TASK_ID ? { ...task, note: undefined } : task)),
     };
 
     const diff = diffRows(rowsOf(before), rowsOf(after));
@@ -89,7 +98,7 @@ describe('a record is edited', () => {
     const after: DB = {
       ...before,
       tasks: before.tasks.map((task) =>
-        task.id === 'task-1' ? { ...task, repeat: { days: [2, 4], until: '2026-12-31' } } : task,
+        task.id === TASK_ID ? { ...task, repeat: { days: [2, 4], until: '2026-12-31' } } : task,
       ),
     };
 
@@ -103,7 +112,7 @@ describe('a record is removed', () => {
   const diff = diffRows(rowsOf(withExtraTask(aTask())), rowsOf(base));
 
   it('deletes it by id, and writes nothing else', () => {
-    expect(diff.tasks.remove).toEqual(['task-1']);
+    expect(diff.tasks.remove).toEqual([TASK_ID]);
     expect(diff.tasks.upsert).toEqual([]);
   });
 });
@@ -111,11 +120,11 @@ describe('a record is removed', () => {
 describe('several things at once', () => {
   it('handles additions and deletions in the same table', () => {
     const before = withExtraTask(aTask());
-    const after: DB = { ...before, tasks: [...before.tasks.filter((t) => t.id !== 'task-1'), aTask({ id: 'task-2' })] };
+    const after: DB = { ...before, tasks: [...before.tasks.filter((t) => t.id !== TASK_ID), aTask({ id: OTHER_ID })] };
 
     const diff = diffRows(rowsOf(before), rowsOf(after));
-    expect(diff.tasks.upsert.map((row) => row.id)).toEqual(['task-2']);
-    expect(diff.tasks.remove).toEqual(['task-1']);
+    expect(diff.tasks.upsert.map((row) => row.id)).toEqual([OTHER_ID]);
+    expect(diff.tasks.remove).toEqual([TASK_ID]);
     expect(diffSize(diff)).toBe(2);
   });
 

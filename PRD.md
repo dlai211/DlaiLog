@@ -871,3 +871,45 @@ to find out whether it works.
 repository with no new commits, and emails a warning when it does. Since the whole point here is to
 survive long quiet periods, that is worth remembering — a commit now and then (or pressing "Run
 workflow" from the Actions tab, which the workflow also allows) keeps it alive.
+
+### 32.1 The id that the database would not take (fix)
+
+Saving failed with `Could not save "tasks": invalid input syntax for type uuid:
+"id-muuau264-wl8l4ss9" — code 22P02`. The record was never written, and the app said so.
+
+**What happened.** The id generator used `crypto.randomUUID()` when it was there and fell back to
+`id-<time>-<random>` when it was not. That was harmless while the data lived on the device, because
+nothing cared what shape an id was. PostgreSQL does care: the `uuid` columns accept one format and
+reject everything else. The fallback was reached more often than it sounds — any browser serving the
+app over plain `http` withholds `randomUUID`, because it is only offered in a secure context, and
+React Native's runtime does not guarantee it either.
+
+**The fix has two halves, and both are needed.**
+
+- [x] **New ids are always UUIDs.** There is no longer a fallback that produces a different *shape*.
+      If `randomUUID` is missing the bytes are gathered another way — `getRandomValues` if present,
+      `Math.random` if not — and laid out as a version-4 UUID here. The version and variant bits are
+      set, so the result is well formed rather than merely 32 hex digits long. These are record
+      identifiers, not secrets, which is why the last resort may use `Math.random`
+- [x] **Ids saved by an older version still work.** `toUuid` converts any id the database would
+      refuse, applied in `dbToRows` — the single point every row passes through on its way out, so
+      no path can bypass it, including a restored backup or an older device's data
+- [x] The conversion is **deterministic**, and that is the whole point of it. The app decides what
+      to write by comparing records against the last saved version, so an id that turned into a
+      different UUID on each pass would look like a brand-new record every time: the old row
+      deleted, a new one inserted, on every single save, for a task nobody touched
+- [x] An id that is already a UUID is returned unchanged (lower-cased, since that is how PostgreSQL
+      compares them)
+
+**Why not change the columns to `TEXT`.** That was the other way to fix it, and it would work. It
+was not taken because it trades away something worth keeping to solve a problem that no longer
+exists once ids are generated correctly: `uuid` is the right type for a surrogate key, it is half
+the size of the equivalent text, and it cannot be filled with a value that is not an id. Converting
+every id column — and every future one — to `TEXT` would also give up the guarantee that caught
+this bug in the first place.
+
+**Verified against the real database, not just in tests:** a new task saves and the row that
+arrives carries a well-formed UUID; a new purchase saves *and* so does the pantry row it fills,
+which is a second table written by the same action and so a second chance to get an id wrong. Both
+survive wiping the browser and reloading, which is what proves they came from the database. The
+id that failed in the report — `id-muuau264-wl8l4ss9` — is used as a test fixture.
