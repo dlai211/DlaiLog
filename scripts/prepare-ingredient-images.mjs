@@ -9,7 +9,7 @@
 //
 // It also writes a contact sheet to scripts/contact-sheet.png so the whole set
 // can be checked at a glance.
-import { readdirSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 
@@ -93,3 +93,20 @@ await page.screenshot({ path: 'scripts/contact-sheet.png', fullPage: true });
 await browser.close();
 console.log(`\n${results.length} pictures · total ${results.reduce((sum, r) => sum + r.kb, 0)} KB`);
 console.log('Contact sheet: scripts/contact-sheet.png');
+
+// A picture is only ever shown if the app knows about it: it needs an entry in
+// src/data/ingredient-photos.ts, and a tile with the same key in
+// src/data/ingredient-images.tsx. Anything prepared but not registered is
+// reported here rather than silently sitting unused.
+const registry = readFileSync('src/data/ingredient-photos.ts', 'utf8');
+// Match on the prepared file name rather than the key: a key may be registered
+// under a different name (chicken-leg.jpg is the 'chicken' tile's picture).
+const unregistered = results
+  .filter(({ key }) => !registry.includes(`/ingredients/${key}.jpg`))
+  .map(({ key }) => key);
+
+if (unregistered.length > 0) {
+  console.log(
+    `\nNot registered yet — add these to src/data/ingredient-photos.ts:\n  ${unregistered.join('\n  ')}`
+  );
+}

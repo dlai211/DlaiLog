@@ -24,7 +24,7 @@ import type { DB } from '@/store/types';
  * is not a complete DlaiLog backup is refused without touching anything.
  */
 export function BackupModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { db, replaceAll, loadSampleData, eraseAllData } = useData();
+  const { db, replaceAll, loadSampleData, importAlbertsonsTrip, eraseAllData } = useData();
   const { showToast } = useToast();
 
   const [pendingRestore, setPendingRestore] = useState<{ name: string; db: DB } | null>(null);
@@ -116,7 +116,25 @@ export function BackupModal({ visible, onClose }: { visible: boolean; onClose: (
               A week of made-up shopping, a pantry with things run out, three dishes and a
               repeating class — enough to see every screen doing something.
             </ThemedText>
+            <ThemedText type="caption" themeColor="textTertiary">
+              The example set already includes the Albertsons trip; the button below adds just
+              that receipt to the data you have now.
+            </ThemedText>
             <View style={styles.actions}>
+              <Button
+                label="Add the Albertsons trip (14 items)"
+                variant="secondary"
+                testID="settings-import-trip"
+                onPress={() => {
+                  const added = importAlbertsonsTrip();
+                  showToast(
+                    added === 0
+                      ? 'The Albertsons trip is already logged.'
+                      : `${added} items added from Albertsons.`
+                  );
+                  onClose();
+                }}
+              />
               <Button
                 label="Load example data"
                 variant="secondary"

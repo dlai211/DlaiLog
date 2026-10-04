@@ -1,5 +1,12 @@
 import { addDays, daysBetween, todayKey, weekdayOf } from '@/lib/dates';
-import { buildSampleDB } from '@/store/sample-data';
+import {
+  ALBERTSONS_STORE,
+  ALBERTSONS_TRIP_DATE,
+  ALBERTSONS_TRIP_ITEMS,
+  buildAlbertsonsTrip,
+  buildSampleDB,
+} from '@/store/sample-data';
+import { findIngredientTile } from '@/data/ingredient-images';
 import { groceryItems, shoppingSuggestions, taskOccursOn } from '@/store/selectors';
 import { isValidDB } from '@/store/storage';
 
@@ -95,5 +102,60 @@ describe('the example dataset', () => {
   it('is built fresh each time, so two loads never share ids', () => {
     const other = buildSampleDB(today);
     expect(other.tasks[0].id).not.toBe(db.tasks[0].id);
+  });
+});
+
+describe('the Albertsons receipt', () => {
+  const trip = ALBERTSONS_TRIP_ITEMS;
+
+  it('holds all fourteen lines of the trip, exactly as shopped', () => {
+    expect(trip).toHaveLength(14);
+    expect(trip[0]).toMatchObject({
+      name: 'Signature Select Coffee Crystals Instant',
+      imageKey: 'coffee',
+      category: 'misc',
+      amount: 12,
+      unit: 'oz',
+      paid: 10.99,
+    });
+    expect(trip[4]).toMatchObject({
+      name: 'Signature Select Chicken Leg Quarter Value Pack',
+      imageKey: 'chicken',
+      amount: 6.56,
+      unit: 'lb',
+      paid: 8.46,
+      savings: 4.59,
+    });
+    expect(trip[13]).toMatchObject({ name: 'Kerrygold Garlic & Herb Butter', imageKey: 'butter' });
+  });
+
+  it('adds up to the receipt: $79.72 paid, $5.90 saved', () => {
+    const paid = trip.reduce((sum, item) => sum + item.paid, 0);
+    const savings = trip.reduce((sum, item) => sum + (item.savings ?? 0), 0);
+
+    expect(Math.round(paid * 100) / 100).toBe(79.72);
+    expect(Math.round(savings * 100) / 100).toBe(5.9);
+  });
+
+  it('points every line at a picture the app actually has', () => {
+    for (const item of trip) {
+      expect(findIngredientTile(item.imageKey)).toBeDefined();
+    }
+  });
+
+  it('is part of the example database, dated to the day it was built', () => {
+    const built = buildSampleDB(today);
+    const albertsons = built.purchases.filter((purchase) => purchase.store === ALBERTSONS_STORE);
+
+    expect(albertsons).toHaveLength(14);
+    expect(albertsons.every((purchase) => purchase.date === today)).toBe(true);
+  });
+
+  it('builds the same trip for the one-time import, dated to the receipt', () => {
+    const imported = buildAlbertsonsTrip();
+
+    expect(imported).toHaveLength(14);
+    expect(imported.every((item) => item.date === ALBERTSONS_TRIP_DATE)).toBe(true);
+    expect(imported.every((item) => item.store === ALBERTSONS_STORE)).toBe(true);
   });
 });

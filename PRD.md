@@ -674,3 +674,34 @@ single-item one: **+ Log shopping trip**.
       "saved $x.xx" chip, and the month summary adds the savings up
 - [x] Nothing is refused silently: the store, at least one named item, and a price above zero for
       every named row are all required before the trip saves
+
+## 30. The Albertsons receipt, and the pictures that came with it
+
+**The trip.** A real 14-item shopping trip is now part of the app's data
+(`src/store/sample-data.ts` → `ALBERTSONS_TRIP_ITEMS`), item for item:
+
+- [x] Store **Albertsons**, receipt date **2026-10-03**, 14 lines with the exact names,
+      quantities, units, prices and savings
+- [x] It is in the **example dataset**, so a fresh install (and "Load example data") has it —
+      dated to the day the example was built, so it always counts as recent
+- [x] **One-time import:** Backup & Restore → **"Add the Albertsons trip (14 items)"** appends
+      the receipt to the data you already have, dated to the receipt itself. It is
+      **idempotent** — recognised by store + day + item name, so pressing it twice adds nothing —
+      and it feeds the pantry exactly like the batch form does
+- [x] The receipt totals: **$79.72 paid**, **$5.90 saved** across four discounted lines
+      ($0.30 oil, $4.59 chicken, $0.41 tomatoes, $0.60 carrots)
+- [x] Amounts are stored in the units the receipt uses, so unit prices come out right
+      (steak $19.99/lb, chicken $1.29/lb, potatoes $0.50/lb)
+
+**The pictures.** Four photographs the user added — coffee, ketchup, oil, butter — are prepared
+and wired in (37 pictures, 364 KB):
+
+- [x] `scripts/prepare-ingredient-images.mjs` needed no change to pick them up, and now also
+      **reports any prepared picture that is not registered** in `ingredient-photos.ts`
+- [x] New tiles: **Coffee**, **Ketchup**; the existing cooking-oil tile is now the **Oil** tile
+      (with the photograph); the butter tile gained its picture
+- [x] Tile lookups forgive the picture files' own spellings: `chicken_leg`, `chinese_cabbage`,
+      `eggs`, `shanghai_bok_choy`, `cooking-oil` all resolve to the right tile
+- [x] The name guesser now only counts a keyword as a phrase match when it covers a real share of
+      the name — so "Signature Select Oil Vegetable" finds the oil bottle rather than the greens
+      tile, while "Kikkoman soya sauce" still finds the soy sauce

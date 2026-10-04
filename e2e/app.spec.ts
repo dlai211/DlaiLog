@@ -428,3 +428,31 @@ test('logs a whole shopping trip at once, and every screen hears about it', asyn
   await expect(page.getByText('Ketchup')).toBeVisible();
   await expect(page.getByText('Apples')).toBeVisible();
 });
+
+test('the Albertsons trip imports into an app that already has data, once', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('backup-button').click();
+  await page.getByTestId('settings-import-trip').click();
+  await expect(page.getByText('14 items added from Albertsons.')).toBeVisible();
+
+  // The Grocery Tracker knows the receipt's items (the ketchup is a condiment,
+  // which is the tab the tracker opens on)…
+  await page.getByTestId('nav-grocery').click();
+  await page.getByTestId('grocery-search').fill('Ketchup');
+  await expect(page.getByText('Signature Select Ketchup Less Sodium Less Sugar')).toBeVisible();
+
+  // …and the pantry was stocked from the same trip.
+  await page.getByTestId('nav-inventory').click();
+  const carrots = page.locator('[data-testid^="stock-row-"]', { hasText: 'Carrots' });
+  await expect(carrots).toContainText('2 lb');
+
+  // Pressing it again changes nothing.
+  await page.getByTestId('backup-button').click();
+  await page.getByTestId('settings-import-trip').click();
+  await expect(page.getByText('The Albertsons trip is already logged.')).toBeVisible();
+
+  await page.getByTestId('nav-inventory').click();
+  await expect(page.locator('[data-testid^="stock-row-"]', { hasText: 'Carrots' })).toContainText(
+    '2 lb'
+  );
+});

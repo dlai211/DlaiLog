@@ -142,12 +142,13 @@ export interface IngredientTile {
 export const INGREDIENT_TILES: IngredientTile[] = [
   { key: 'soy-sauce', label: 'Soy sauce', keywords: ['soy', 'soya', 'shoyu'], shape: 'bottle', tint: 'clay' },
   { key: 'olive-oil', label: 'Olive oil', keywords: ['olive', 'oil', 'evoo'], shape: 'bottle', tint: 'olive' },
-  { key: 'cooking-oil', label: 'Cooking oil', keywords: ['oil', 'vegetable oil', 'sunflower', 'canola'], shape: 'bottle', tint: 'sand' },
+  { key: 'oil', label: 'Cooking oil', keywords: ['oil', 'vegetable oil', 'sunflower', 'canola', 'cooking oil'], shape: 'bottle', tint: 'sand' },
   { key: 'vinegar', label: 'Vinegar', keywords: ['vinegar', 'balsamic', 'rice vinegar'], shape: 'bottle', tint: 'sage' },
   { key: 'salt', label: 'Salt', keywords: ['salt', 'sea salt'], shape: 'jar', tint: 'sand' },
   { key: 'sugar', label: 'Sugar', keywords: ['sugar', 'brown sugar', 'sweetener'], shape: 'bag', tint: 'sand' },
   { key: 'pepper', label: 'Pepper', keywords: ['pepper', 'peppercorn', 'black pepper'], shape: 'jar', tint: 'clay' },
-  { key: 'sauce-jar', label: 'Sauce or spread', keywords: ['sauce', 'ketchup', 'mayonnaise', 'mayo', 'jam', 'honey', 'paste', 'mustard'], shape: 'jar', tint: 'terracotta' },
+  { key: 'sauce-jar', label: 'Sauce or spread', keywords: ['sauce', 'mayonnaise', 'mayo', 'jam', 'honey', 'paste', 'mustard'], shape: 'jar', tint: 'terracotta' },
+  { key: 'ketchup', label: 'Ketchup', keywords: ['ketchup', 'tomato ketchup', 'tomato sauce'], shape: 'bottle', tint: 'terracotta' },
   { key: 'hot-sauce', label: 'Hot sauce', keywords: ['hot sauce', 'chilli sauce', 'chili sauce', 'sriracha', 'chilli oil', 'chili crisp'], shape: 'jar', tint: 'terracotta' },
   { key: 'oyster-sauce', label: 'Oyster sauce', keywords: ['oyster sauce'], shape: 'bottle', tint: 'clay' },
   { key: 'rice', label: 'Rice', keywords: ['rice', 'basmati', 'jasmine', 'grain'], shape: 'bag', tint: 'sand' },
@@ -202,7 +203,8 @@ export const INGREDIENT_TILES: IngredientTile[] = [
   { key: 'frozen', label: 'Frozen food', keywords: ['frozen', 'ice cream', 'frozen food'], shape: 'box', tint: 'sky' },
   { key: 'canned', label: 'Canned & tinned', keywords: ['canned', 'tin', 'can', 'tinned', 'tomato paste'], shape: 'can', tint: 'sage' },
   { key: 'snacks', label: 'Snacks & biscuits', keywords: ['snacks', 'biscuits', 'cookies', 'chocolate', 'crisps', 'chips'], shape: 'box', tint: 'clay' },
-  { key: 'drinks', label: 'Drinks', keywords: ['drinks', 'juice', 'soda', 'water', 'tea', 'coffee', 'beer', 'wine'], shape: 'bottle', tint: 'sky' },
+  { key: 'drinks', label: 'Drinks', keywords: ['drinks', 'juice', 'soda', 'water', 'tea', 'beer', 'wine'], shape: 'bottle', tint: 'sky' },
+  { key: 'coffee', label: 'Coffee', keywords: ['coffee', 'instant coffee', 'coffee crystals', 'espresso', 'ground coffee'], shape: 'jar', tint: 'clay' },
   { key: 'detergent', label: 'Cleaning', keywords: ['detergent', 'laundry', 'soap', 'dish soap', 'cleaner', 'cleaning', 'bleach'], shape: 'bottle', tint: 'sky' },
   { key: 'paper', label: 'Paper goods', keywords: ['toilet paper', 'tissue', 'paper towel', 'paper', 'napkin'], shape: 'box', tint: 'sand' },
   { key: 'cleaning-tools', label: 'Sponges & cloths', keywords: ['sponge', 'scrub', 'cloth', 'mop', 'brush'], shape: 'box', tint: 'sage' },
@@ -212,6 +214,24 @@ export const INGREDIENT_TILES: IngredientTile[] = [
 ];
 
 const TILE_BY_KEY = new Map(INGREDIENT_TILES.map((tile) => [tile.key, tile]));
+
+/**
+ * Tiles that were renamed, and the spellings that mean the same thing.
+ * Lookups fall back through this, so a row saved as `chicken_leg`,
+ * `chinese_cabbage` or `cooking-oil` — the picture files' own names — still
+ * finds its tile.
+ */
+const TILE_KEY_ALIASES: Record<string, string> = {
+  'cooking-oil': 'oil',
+  'eggs': 'egg',
+  'chicken-leg': 'chicken',
+  'shanghai-bok-choy': 'bok-choy',
+};
+
+function canonicalTileKey(key: string): string {
+  const kebab = key.trim().toLowerCase().replace(/_/g, '-');
+  return TILE_KEY_ALIASES[kebab] ?? kebab;
+}
 
 /**
  * The picture for an item with none of its own: a plain drawn bag, kept out of
@@ -227,7 +247,7 @@ export const NEUTRAL_TILE: IngredientTile = {
 
 export function findIngredientTile(key: string | undefined): IngredientTile | undefined {
   if (!key) return undefined;
-  return TILE_BY_KEY.get(key);
+  return TILE_BY_KEY.get(key) ?? TILE_BY_KEY.get(canonicalTileKey(key));
 }
 
 export function searchIngredientTiles(query: string, limit = 12): IngredientTile[] {
@@ -273,7 +293,12 @@ export function guessIngredientTile(name: string): IngredientTile | undefined {
     }
 
     for (const phrase of [tile.label.toLowerCase(), ...tile.keywords]) {
-      if (normalized.includes(phrase)) score += phrase.length;
+      if (!normalized.includes(phrase)) continue;
+      // A phrase only earns its bonus when it covers a real share of the
+      // name. "soya sauce" in "Kikkoman soya sauce" does; the lone word
+      // "vegetable" in "Signature Select Oil Vegetable" does not — otherwise
+      // a generic tile would beat the one that matches more of the name.
+      if (words(phrase).length / nameWords.length >= 0.5) score += phrase.length;
     }
 
     if (score > 0 && (!best || score > best.score)) best = { tile, score };

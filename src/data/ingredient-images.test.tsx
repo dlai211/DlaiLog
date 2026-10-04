@@ -120,3 +120,28 @@ describe('IngredientImage', () => {
     expect(screen.getByTestId('img')).toBeOnTheScreen();
   });
 });
+
+describe('the photographs added with the receipt import', () => {
+  it('gives coffee, ketchup, oil and butter their own pictures', () => {
+    for (const key of ['coffee', 'ketchup', 'oil', 'butter']) {
+      expect(INGREDIENT_PHOTOS[key]).toBeDefined();
+      expect(findIngredientTile(key)).toBeDefined();
+    }
+  });
+
+  it('recognises them by name', () => {
+    expect(guessIngredientTile('Signature Select Coffee Crystals Instant')?.key).toBe('coffee');
+    expect(guessIngredientTile('Signature Select Ketchup Less Sodium')?.key).toBe('ketchup');
+    expect(guessIngredientTile('Signature Select Oil Vegetable')?.key).toBe('oil');
+    expect(guessIngredientTile('Kerrygold Garlic & Herb Butter')?.key).toBe('butter');
+  });
+
+  it('still finds a tile for the picture files’ own spellings', () => {
+    expect(findIngredientTile('chicken_leg')?.key).toBe('chicken');
+    expect(findIngredientTile('chinese_cabbage')?.key).toBe('chinese-cabbage');
+    expect(findIngredientTile('eggs')?.key).toBe('egg');
+    expect(findIngredientTile('shanghai_bok_choy')?.key).toBe('bok-choy');
+    // A rename from before the receipt: stored rows keep working.
+    expect(findIngredientTile('cooking-oil')?.key).toBe('oil');
+  });
+});

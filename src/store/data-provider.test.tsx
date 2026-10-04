@@ -589,3 +589,48 @@ describe('logging a whole shopping trip at once', () => {
     expect(latest!.db.purchases).toHaveLength(2);
   });
 });
+
+describe('the one-time Albertsons import', () => {
+  it('adds the whole trip to the data that is already there', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addPurchase({
+        date: '2026-09-01',
+        itemName: 'My own item',
+        category: 'misc',
+        amount: 1,
+        unit: 'pcs',
+        totalPrice: 5,
+        store: 'Corner Shop',
+      });
+    });
+
+    let added = 0;
+    await act(async () => {
+      added = latest!.importAlbertsonsTrip();
+    });
+
+    expect(added).toBe(14);
+    expect(latest!.db.purchases).toHaveLength(15);
+    expect(latest!.db.purchases.filter((p) => p.store === 'Albertsons')).toHaveLength(14);
+    // The pantry was stocked from the same trip.
+    expect(latest!.db.inventory.find((item) => item.key === 'carrots')?.quantity).toBe(2);
+    expect(latest!.db.inventory.find((item) => item.key === 'lucerne 1% low fat milk')).toBeDefined();
+  });
+
+  it('cannot log the same trip twice', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.importAlbertsonsTrip();
+    });
+    let second = -1;
+    await act(async () => {
+      second = latest!.importAlbertsonsTrip();
+    });
+
+    expect(second).toBe(0);
+    expect(latest!.db.purchases).toHaveLength(14);
+  });
+});

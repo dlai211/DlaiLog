@@ -12,9 +12,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useToast } from '@/components/ui/toast';
 import { newId } from '@/lib/id';
-import { buildSampleDB } from '@/store/sample-data';
+import { ALBERTSONS_STORE, ALBERTSONS_TRIP_DATE, buildAlbertsonsTrip, buildSampleDB } from '@/store/sample-data';
 import { loadDB, saveDB } from '@/store/storage';
-import { purchaseStockChange, type PurchaseStockChange } from '@/store/selectors';
+import { normalizeItemName, purchaseStockChange, type PurchaseStockChange } from '@/store/selectors';
 import {
   emptyDB,
   isEmptyDB,
@@ -84,6 +84,11 @@ export interface DataContextValue {
   replaceAll(next: DB): void;
   /** Replaces everything with the example dataset (Backup & Restore dialog). */
   loadSampleData(): void;
+  /**
+   * Adds the Albertsons receipt to whatever is already saved, once. Returns
+   * how many items were added (0 when the trip is already logged).
+   */
+  importAlbertsonsTrip(): number;
   /** Clears every record, and stops the example data coming back on reload. */
   eraseAllData(): void;
 }
@@ -499,6 +504,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
     mutate(() => buildSampleDB());
   }, [mutate]);
 
+  const importAlbertsonsTrip = useCallback(() => {
+    // Already-imported lines are recognised by store, day and item name, so
+    // pressing the button twice cannot log the trip twice.
+    const logged = new Set(
+      db.purchases
+        .filter(
+          (purchase) =>
+            purchase.store === ALBERTSONS_STORE && purchase.date === ALBERTSONS_TRIP_DATE
+        )
+        .map((purchase) => normalizeItemName(purchase.itemName))
+    );
+
+    const fresh = buildAlbertsonsTrip().filter(
+      (item) => !logged.has(normalizeItemName(item.itemName))
+    );
+    if (fresh.length === 0) return 0;
+
+    addPurchases(fresh);
+    return fresh.length;
+  }, [addPurchases, db.purchases]);
+
   const eraseAllData = useCallback(() => {
     AsyncStorage.setItem(NO_SEED_KEY, '1').catch(() => {});
     mutate(() => emptyDB());
@@ -535,6 +561,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clearDoneShopping,
       replaceAll,
       loadSampleData,
+      importAlbertsonsTrip,
       eraseAllData,
     }),
     [
@@ -567,6 +594,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clearDoneShopping,
       replaceAll,
       loadSampleData,
+      importAlbertsonsTrip,
       eraseAllData,
     ]
   );

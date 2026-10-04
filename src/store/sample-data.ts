@@ -16,6 +16,7 @@ import { normalizeItemName, round2 } from '@/store/selectors';
 import {
   emptyDB,
   type DB,
+  type NewPurchase,
   type Category,
   type Ingredient,
   type Meal,
@@ -49,7 +50,7 @@ const PURCHASES: PurchaseSeed[] = [
   { daysAgo: 18, itemName: 'Green onions', imageKey: 'green-onion', category: 'grocery', amount: 3, unit: 'pack', totalPrice: 2.7, store: 'Asia Market' },
   { daysAgo: 14, itemName: 'Rice', imageKey: 'rice', category: 'grocery', amount: 5, unit: 'kg', totalPrice: 18.2, store: 'Asia Market' },
   { daysAgo: 13, itemName: 'Tofu', imageKey: 'tofu', category: 'grocery', amount: 4, unit: 'pack', totalPrice: 3.6, store: 'NTUC FairPrice' },
-  { daysAgo: 12, itemName: 'Cooking oil', imageKey: 'cooking-oil', category: 'condiment', amount: 2, unit: 'L', totalPrice: 9.8, store: 'Sheng Siong' },
+  { daysAgo: 12, itemName: 'Cooking oil', imageKey: 'oil', category: 'condiment', amount: 2, unit: 'L', totalPrice: 9.8, store: 'Sheng Siong' },
   { daysAgo: 9, itemName: 'Soy sauce', imageKey: 'soy-sauce', category: 'condiment', amount: 500, unit: 'ml', totalPrice: 4.95, store: 'NTUC FairPrice' },
   { daysAgo: 7, itemName: 'Bok choy', imageKey: 'bok-choy', category: 'grocery', amount: 2, unit: 'pack', totalPrice: 3.1, store: 'Asia Market' },
   { daysAgo: 6, itemName: 'Milk', imageKey: 'milk', category: 'grocery', amount: 2, unit: 'L', totalPrice: 6.4, store: 'NTUC FairPrice' },
@@ -71,7 +72,7 @@ const PANTRY: { name: string; imageKey: string; category: Category; quantity: nu
   { name: 'Rice', imageKey: 'rice', category: 'grocery', quantity: 4.2, unit: 'kg' },
   { name: 'Soy sauce', imageKey: 'soy-sauce', category: 'condiment', quantity: 380, unit: 'ml' },
   { name: 'Eggs', imageKey: 'egg', category: 'grocery', quantity: 9, unit: 'pcs' },
-  { name: 'Cooking oil', imageKey: 'cooking-oil', category: 'condiment', quantity: 1.4, unit: 'L' },
+  { name: 'Cooking oil', imageKey: 'oil', category: 'condiment', quantity: 1.4, unit: 'L' },
   { name: 'Oyster sauce', imageKey: 'oyster-sauce', category: 'condiment', quantity: 420, unit: 'ml' },
   { name: 'Garlic', imageKey: 'garlic', category: 'grocery', quantity: 260, unit: 'g' },
   { name: 'Ginger', imageKey: 'ginger', category: 'grocery', quantity: 180, unit: 'g' },
@@ -119,6 +120,68 @@ const MEALS: { name: string; ingredients: [string, string, number?, Unit?][]; st
       '1. Boil the dumplings in lightly salted water until they float.\n2. Cook the noodles separately, then the bok choy for a minute.\n3. Assemble in bowls, season with oyster sauce, and top with spring onion.',
   },
 ];
+
+// ---------------------------------------------------------------------------
+// The Albertsons receipt (PRD §30)
+// ---------------------------------------------------------------------------
+//
+// A real 14-item shopping trip, kept item for item: the store, the day it was
+// shopped, what each item cost and what the discounts took off. It is part of
+// the example data, and the same list is what the one-time import in the
+// settings dialog writes — so the trip can be added to an app that already has
+// data, without touching anything else in it.
+
+export const ALBERTSONS_STORE = 'Albertsons';
+/** The day of the receipt. */
+export const ALBERTSONS_TRIP_DATE = '2026-10-03';
+
+interface TripItemSeed {
+  name: string;
+  /** Ingredient-tile key — see the mapping notes in ingredient-images.tsx. */
+  imageKey: string;
+  category: Category;
+  amount: number;
+  unit: Unit;
+  /** What was paid for the line, after savings. */
+  paid: number;
+  /** What the discounts took off, where the receipt shows any. */
+  savings?: number;
+}
+
+export const ALBERTSONS_TRIP_ITEMS: TripItemSeed[] = [
+  { name: 'Signature Select Coffee Crystals Instant', imageKey: 'coffee', category: 'misc', amount: 12, unit: 'oz', paid: 10.99 },
+  { name: 'Signature Select Ketchup Less Sodium Less Sugar', imageKey: 'ketchup', category: 'condiment', amount: 19.5, unit: 'oz', paid: 3.99 },
+  { name: 'Signature Select Oil Vegetable', imageKey: 'oil', category: 'condiment', amount: 24, unit: 'oz', paid: 3.99, savings: 0.3 },
+  { name: 'USDA Choice Beef Top Loin NY Strip Steak Boneless', imageKey: 'steak', category: 'grocery', amount: 0.83, unit: 'lb', paid: 16.59 },
+  { name: 'Signature Select Chicken Leg Quarter Value Pack', imageKey: 'chicken', category: 'grocery', amount: 6.56, unit: 'lb', paid: 8.46, savings: 4.59 },
+  { name: 'Lettuce Green Leaf', imageKey: 'chinese-cabbage', category: 'grocery', amount: 1, unit: 'pcs', paid: 2.99 },
+  { name: 'Tomatoes On The Vine Red Cluster', imageKey: 'tomato', category: 'grocery', amount: 1.6, unit: 'lb', paid: 3.18, savings: 0.41 },
+  { name: 'Signature Select/Farms Baby Bella Mushrooms', imageKey: 'mushroom', category: 'grocery', amount: 20, unit: 'oz', paid: 5.99 },
+  { name: 'Signature Select/Farms Potatoes Russet', imageKey: 'potato', category: 'grocery', amount: 10, unit: 'lb', paid: 4.99 },
+  { name: 'Carrots', imageKey: 'carrot', category: 'grocery', amount: 2, unit: 'lb', paid: 1.99, savings: 0.6 },
+  { name: 'O Organics Apples Fuji', imageKey: 'apple', category: 'grocery', amount: 1, unit: 'pack', paid: 4.99 },
+  { name: 'Lucerne Cage Free Large Grade A Eggs', imageKey: 'egg', category: 'grocery', amount: 18, unit: 'pcs', paid: 4.29 },
+  { name: 'Lucerne 1% Low Fat Milk', imageKey: 'milk', category: 'grocery', amount: 1, unit: 'pack', paid: 2.99 },
+  { name: 'Kerrygold Garlic & Herb Butter', imageKey: 'butter', category: 'grocery', amount: 3.5, unit: 'oz', paid: 4.29 },
+];
+
+/** The receipt as purchases, ready for the store. */
+export function buildAlbertsonsTrip(
+  date: string = ALBERTSONS_TRIP_DATE,
+  store: string = ALBERTSONS_STORE
+): NewPurchase[] {
+  return ALBERTSONS_TRIP_ITEMS.map((item) => ({
+    date,
+    itemName: item.name,
+    imageKey: item.imageKey,
+    category: item.category,
+    amount: item.amount,
+    unit: item.unit,
+    totalPrice: round2(item.paid),
+    ...(item.savings ? { savings: round2(item.savings) } : {}),
+    store,
+  }));
+}
 
 function samplePurchases(today: string): Purchase[] {
   return PURCHASES.map((seed) => {
@@ -335,7 +398,13 @@ export function buildSampleDB(today: string = todayKey()): DB {
     tasks: sampleTasks(today),
     notes: sampleNotes(today),
     projects: sampleProjects(today),
-    purchases: samplePurchases(today),
+    purchases: samplePurchases(today).concat(
+      buildAlbertsonsTrip(today).map((input) => ({
+        ...input,
+        id: newId(),
+        createdAt: `${today}T17:30:00.000Z`,
+      }))
+    ),
     inventory: sampleInventory(today),
     meals: sampleMeals(today),
     shopping: sampleShopping(today),
