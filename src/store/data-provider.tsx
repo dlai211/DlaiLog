@@ -56,6 +56,11 @@ export interface DataContextValue {
   deleteProject(id: string): void;
 
   addPurchase(input: NewPurchase): Purchase;
+  /**
+   * Logs a whole shopping trip in one go: every item is added, and the pantry
+   * moves for each of them, in a single save.
+   */
+  addPurchases(inputs: NewPurchase[]): Purchase[];
   updatePurchase(id: string, patch: Partial<Omit<Purchase, 'id'>>): void;
   deletePurchase(id: string): void;
 
@@ -287,6 +292,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [mutate]
   );
 
+  const addPurchases = useCallback(
+    (inputs: NewPurchase[]) => {
+      const stamp = nowISO();
+      const purchases: Purchase[] = inputs.map((input) => ({
+        ...input,
+        id: newId(),
+        createdAt: stamp,
+      }));
+
+      mutate((current) => {
+        let next: DB = { ...current, purchases: [...current.purchases, ...purchases] };
+        // One item at a time, so two rows of the same thing add up rather than
+        // overwriting each other — the same rule as logging them one by one.
+        for (const purchase of purchases) {
+          next = withStockChange(next, purchaseStockChange(next.inventory, purchase, 1));
+        }
+        return next;
+      });
+
+      return purchases;
+    },
+    [mutate]
+  );
+
   const updatePurchase = useCallback(
     (id: string, patch: Partial<Omit<Purchase, 'id'>>) => {
       mutate((current) => {
@@ -489,6 +518,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateProject,
       deleteProject,
       addPurchase,
+      addPurchases,
       updatePurchase,
       deletePurchase,
       addIngredient,
@@ -520,6 +550,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateProject,
       deleteProject,
       addPurchase,
+      addPurchases,
       updatePurchase,
       deletePurchase,
       addIngredient,

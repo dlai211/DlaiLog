@@ -651,3 +651,26 @@ this app, and so did the layout it was wrapped in. Both are fixed:
 - [x] Verified in a browser at 2400, 1600 and 1100 wide: sidebar 248px at all three; the content
       column measured 1400 / 1304 / 804; no CSS-function value left in the DOM; no console
       warnings.
+
+## 29. Logging a whole shopping trip at once
+
+Entering a receipt one purchase at a time is slow, so Spending has a batch form beside the
+single-item one: **+ Log shopping trip**.
+
+- [x] **Header:** the store (with the saved-name autocomplete) and the date, once for the trip
+- [x] **A row per item:** picture, item name (autofill from the pantry, purchases and pictures),
+      category, quantity, unit (pcs, pack, bag, lb, oz, g, kg, ml, L), **Paid**, optional
+      **Saved**, and a ✕ to drop the row
+- [x] Typing a name picks the picture, the category and the unit; choosing a saved item also
+      fills in what it last cost
+- [x] **+ Add another item** appends a row; the form opens with three
+- [x] **Live summary:** Items gross (`paid + saved`), Total savings (green, shown as a
+      deduction), and Final paid
+- [x] **Save trip (N items)** writes everything in **one batch transaction** — Spending, the
+      Grocery Tracker's price history and the pantry's stock all update together, and two rows of
+      the same item add up instead of overwriting
+- [x] `Purchase.savings` (optional) is stored beside the price: `totalPrice` is always the money
+      actually paid, savings is what the discounts took off. The purchase row shows a
+      "saved $x.xx" chip, and the month summary adds the savings up
+- [x] Nothing is refused silently: the store, at least one named item, and a price above zero for
+      every named row are all required before the trip saves

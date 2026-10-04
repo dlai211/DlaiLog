@@ -5,7 +5,8 @@
 
 export type Category = 'condiment' | 'grocery' | 'misc';
 export type ProjectStatus = 'not-started' | 'in-progress' | 'done';
-export type Unit = 'ml' | 'L' | 'g' | 'kg' | 'pcs' | 'pack';
+/** Metric, countable, and the Imperial weights a US receipt uses. */
+export type Unit = 'ml' | 'L' | 'g' | 'kg' | 'pcs' | 'pack' | 'lb' | 'oz' | 'bag';
 
 /** A weekly pattern, e.g. every Tuesday and Thursday. */
 export interface TaskRepeat {
@@ -70,8 +71,15 @@ export interface Purchase {
   /** How much was bought, in `unit` (e.g. 2 L). */
   amount: number;
   unit: Unit;
-  /** What was paid in total. */
+  /** What was paid in total, after any savings. */
   totalPrice: number;
+  /**
+   * What the discounts/coupons took off this item, when the receipt shows it.
+   * Kept beside the price rather than folded into it: the money actually paid
+   * is `totalPrice`, and this is what the trip saved. Optional, so everything
+   * saved before this existed reads as "no savings recorded".
+   */
+  savings?: number;
   store: string;
   createdAt: string;
 }

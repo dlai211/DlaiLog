@@ -283,3 +283,55 @@ describe('Spending — where the month went', () => {
     expect(screen.getByText('Grocery $30.00')).toBeOnTheScreen();
   });
 });
+
+describe('Spending — logging a whole shopping trip', () => {
+  it('opens the trip form from the header and saves every item at once', async () => {
+    await renderScreen(<SpendingScreen />);
+
+    expect(screen.queryByTestId('trip-form')).not.toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('new-trip'));
+    expect(screen.getByTestId('trip-form')).toBeOnTheScreen();
+
+    fireEvent.changeText(screen.getByTestId('trip-store'), 'Albertsons');
+    fireEvent.changeText(screen.getByTestId('trip-item-name-0'), 'Ketchup');
+    fireEvent.changeText(screen.getByTestId('trip-item-price-0'), '3.99');
+    fireEvent.changeText(screen.getByTestId('trip-item-name-1'), 'Apples');
+    fireEvent.changeText(screen.getByTestId('trip-item-price-1'), '4.99');
+    fireEvent.changeText(screen.getByTestId('trip-item-savings-1'), '1.50');
+
+    fireEvent.press(screen.getByTestId('trip-save'));
+
+    // The form closes and both items are on the list.
+    await waitFor(() => expect(screen.queryByTestId('trip-form')).not.toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Ketchup')).toBeOnTheScreen());
+    expect(screen.getByText('Apples')).toBeOnTheScreen();
+
+    // Stored as one trip, with the savings kept beside the price paid.
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const saved = JSON.parse(raw as string);
+      expect(saved.purchases).toHaveLength(2);
+      expect(saved.purchases[1]).toMatchObject({
+        itemName: 'Apples',
+        store: 'Albertsons',
+        totalPrice: 4.99,
+        savings: 1.5,
+      });
+      // And the pantry moved for both of them.
+      expect(saved.inventory.map((item: { key: string }) => item.key).sort()).toEqual([
+        'apples',
+        'ketchup',
+      ]);
+    });
+  });
+
+  it('shows what a purchase saved, and the month’s total savings', async () => {
+    await seed([makePurchase({ id: 'p1', totalPrice: 10, savings: 2.5 })]);
+
+    await renderScreen(<SpendingScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('purchase-savings-p1')).toBeOnTheScreen());
+    expect(screen.getByTestId('purchase-savings-p1')).toHaveTextContent(/saved/);
+    expect(screen.getByTestId('spending-summary')).toHaveTextContent(/Saved/);
+  });
+});

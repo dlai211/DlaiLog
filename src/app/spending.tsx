@@ -7,6 +7,7 @@ import {
   PurchaseFormModal,
   type PurchaseFormValues,
 } from '@/components/domain/purchase-form-modal';
+import { TripFormModal, type TripFormValues } from '@/components/domain/trip-form-modal';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
@@ -16,10 +17,11 @@ import { FormField } from '@/components/ui/form-field';
 import { PageHeader } from '@/components/ui/page-header';
 import { RowActions } from '@/components/ui/row-actions';
 import { Select } from '@/components/ui/select';
+import { useToast } from '@/components/ui/toast';
 import { Radius, Spacing } from '@/constants/theme';
 import { CATEGORY_META, CATEGORY_ORDER } from '@/data/categories';
 import { IngredientImage } from '@/data/ingredient-images';
-import { useScreenAccent, useTheme } from '@/hooks/use-theme';
+import { useAccents, useScreenAccent, useTheme } from '@/hooks/use-theme';
 import { currentMonthKey, shiftMonthKey } from '@/lib/dates';
 import { formatAmountUnit, formatLongDate, formatMoney, formatMonthKey, formatUnitPrice } from '@/lib/format';
 import { useData } from '@/store/data-provider';
@@ -37,8 +39,9 @@ const ALL = 'all';
 
 export default function SpendingScreen() {
   const accent = useScreenAccent('spending');
-  const { db, addPurchase, updatePurchase, deletePurchase } = useData();
+  const { db, addPurchase, addPurchases, updatePurchase, deletePurchase } = useData();
   const theme = useTheme();
+  const { showToast } = useToast();
   const router = useRouter();
   const params = useLocalSearchParams<{ edit?: string }>();
 
@@ -47,6 +50,7 @@ export default function SpendingScreen() {
   const [store, setStore] = useState<string>(ALL);
   const [search, setSearch] = useState('');
   const [formVisible, setFormVisible] = useState(false);
+  const [tripVisible, setTripVisible] = useState(false);
   const [editing, setEditing] = useState<Purchase | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Purchase | null>(null);
 
@@ -89,6 +93,26 @@ export default function SpendingScreen() {
     closeForm();
   };
 
+  const handleTripSubmit = (values: TripFormValues) => {
+    addPurchases(
+      values.items.map((item) => ({
+        date: values.date,
+        itemName: item.itemName,
+        imageKey: item.imageKey,
+        category: item.category,
+        amount: item.amount,
+        unit: item.unit,
+        totalPrice: item.totalPrice,
+        savings: item.savings,
+        store: values.store,
+      }))
+    );
+    setTripVisible(false);
+    showToast(
+      `${values.items.length} ${values.items.length === 1 ? 'item' : 'items'} logged at ${values.store}.`
+    );
+  };
+
   const confirmDelete = () => {
     if (pendingDelete) deletePurchase(pendingDelete.id);
     setPendingDelete(null);
@@ -106,15 +130,23 @@ export default function SpendingScreen() {
         accent={accent}
         subtitle="Everything you buy, and where"
         action={
-          <Button
-            label="+ Add purchase"
-            variant="primary"
-            testID="new-purchase"
-            onPress={() => {
-              setEditing(null);
-              setFormVisible(true);
-            }}
-          />
+          <>
+            <Button
+              label="+ Log shopping trip"
+              variant="secondary"
+              testID="new-trip"
+              onPress={() => setTripVisible(true)}
+            />
+            <Button
+              label="+ Add purchase"
+              variant="primary"
+              testID="new-purchase"
+              onPress={() => {
+                setEditing(null);
+                setFormVisible(true);
+              }}
+            />
+          </>
         }
       />
 
@@ -190,7 +222,9 @@ export default function SpendingScreen() {
       <ThemedText type="small" themeColor="textSecondary" testID="spending-summary">
         {`${formatMonthKey(month)}: ${formatMoney(summary.total)} · ${summary.count} ${
           summary.count === 1 ? 'entry' : 'entries'
-        }${summary.topStore ? ` · Top store: ${summary.topStore}` : ''}`}
+        }${summary.topStore ? ` · Top store: ${summary.topStore}` : ''}${
+          summary.savings > 0 ? ` · Saved ${formatMoney(summary.savings)}` : ''
+        }`}
       </ThemedText>
 
       {summary.total > 0 ? (
@@ -255,6 +289,13 @@ export default function SpendingScreen() {
         ))
       )}
 
+      <TripFormModal
+        visible={tripVisible}
+        allPurchases={db.purchases}
+        onClose={() => setTripVisible(false)}
+        onSubmit={handleTripSubmit}
+      />
+
       <PurchaseFormModal
         visible={modalVisible}
         initial={modalInitial}
@@ -284,6 +325,7 @@ function PurchaseRow({
   onDelete: () => void;
 }) {
   const theme = useTheme();
+  const accents = useAccents();
   const categoryColor = theme[CATEGORY_META[purchase.category].colorKey];
   const unitPrice = formatUnitPrice(purchase.totalPrice, purchase.amount);
 
@@ -318,6 +360,15 @@ function PurchaseRow({
           }`}
         </ThemedText>
       </Pressable>
+
+      {purchase.savings && purchase.savings > 0 ? (
+        <Chip
+          label={`saved ${formatMoney(purchase.savings)}`}
+          color={accents.mint}
+          selected
+          testID={`purchase-savings-${purchase.id}`}
+        />
+      ) : null}
 
       <ThemedText type="smallBold" testID={`purchase-total-${purchase.id}`}>
         {formatMoney(purchase.totalPrice)}

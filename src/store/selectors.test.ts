@@ -384,7 +384,7 @@ describe('groupPurchasesByDay', () => {
 describe('monthSummary / monthTotal', () => {
   const purchases = [
     makePurchase({ id: 'a', date: '2026-09-28', totalPrice: 6.45, store: 'Asia Market', category: 'condiment' }),
-    makePurchase({ id: 'b', date: '2026-09-15', totalPrice: 20, store: 'SuperMart', category: 'grocery' }),
+    makePurchase({ id: 'b', date: '2026-09-15', totalPrice: 20, savings: 3.55, store: 'SuperMart', category: 'grocery' }),
     makePurchase({ id: 'c', date: '2026-08-30', totalPrice: 99, store: 'HomeShop', category: 'misc' }),
   ];
 
@@ -397,6 +397,7 @@ describe('monthSummary / monthTotal', () => {
   it('finds the top store and category by spend', () => {
     expect(monthSummary(purchases, '2026-09')).toEqual({
       total: 26.45,
+      savings: 3.55,
       count: 2,
       topStore: 'SuperMart',
       topCategory: 'grocery',
@@ -404,7 +405,7 @@ describe('monthSummary / monthTotal', () => {
   });
 
   it('reports an empty month cleanly', () => {
-    expect(monthSummary(purchases, '2026-07')).toEqual({ total: 0, count: 0 });
+    expect(monthSummary(purchases, '2026-07')).toEqual({ total: 0, savings: 0, count: 0 });
   });
 });
 

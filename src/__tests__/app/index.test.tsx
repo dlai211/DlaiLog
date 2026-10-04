@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import HomeScreen from '@/app/index';
-import { addDays, currentMonthKey, shiftMonthKey, todayKey } from '@/lib/dates';
+import { addDays, currentMonthKey, shiftMonthKey, todayKey, weekStrip } from '@/lib/dates';
 import { formatMoney } from '@/lib/format';
 import { STORAGE_KEY } from '@/store/storage';
 import { renderScreen } from '@/test/helpers';
@@ -137,11 +137,12 @@ describe('Home — Today’s Plan', () => {
     await renderScreen(<HomeScreen />);
     await waitFor(() => expect(screen.getByTestId('home-week-strip')).toBeOnTheScreen());
 
-    fireEvent.press(screen.getByTestId(`home-week-strip-day-${addDays(today, 2)}`));
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/todo',
-      params: { date: addDays(today, 2) },
-    });
+    // Any day of the shown week other than today — "today + 2" falls outside
+    // the strip when today is Saturday or Sunday.
+    const target = weekStrip(today).find((key) => key !== today)!;
+
+    fireEvent.press(screen.getByTestId(`home-week-strip-day-${target}`));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/todo', params: { date: target } });
   });
 });
 

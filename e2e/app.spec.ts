@@ -390,3 +390,41 @@ test('a repeating task shows on every one of its days, and is ticked off one day
   await page.goto(`/todo?date=${wednesday}`);
   await expect(page.getByText('Nothing planned — enjoy it.')).toBeVisible();
 });
+
+test('logs a whole shopping trip at once, and every screen hears about it', async ({ page }) => {
+  await page.goto('/spending');
+  await page.getByTestId('new-trip').click();
+
+  await page.getByTestId('trip-store').fill('Albertsons');
+  await page.getByTestId('trip-item-name-0').fill('Ketchup');
+  await page.getByTestId('trip-item-category-0').click();
+  await page.getByTestId('trip-item-category-0-option-condiment').click();
+  await page.getByTestId('trip-item-price-0').fill('3.99');
+
+  await page.getByTestId('trip-item-name-1').fill('Apples');
+  await page.getByTestId('trip-item-price-1').fill('4.99');
+  await page.getByTestId('trip-item-savings-1').fill('1.50');
+
+  // The footer adds the trip up while it is being typed.
+  await expect(page.getByTestId('trip-summary-paid')).toContainText('8.98');
+  await expect(page.getByTestId('trip-summary-savings')).toContainText('1.50');
+  await expect(page.getByTestId('trip-save')).toContainText('2 items');
+
+  await page.getByTestId('trip-save').click();
+
+  // Both items are on the Spending list, with the saving shown.
+  await expect(page.getByTestId('trip-form')).toHaveCount(0);
+  await expect(page.getByText('Ketchup')).toBeVisible();
+  await expect(page.getByText('Apples')).toBeVisible();
+  await expect(page.locator('[data-testid^="purchase-savings-"]')).toContainText('saved $1.50');
+  await expect(page.getByTestId('spending-summary')).toContainText('Saved $1.50');
+
+  // The Grocery Tracker has the ketchup with its unit price…
+  await page.getByTestId('nav-grocery').click();
+  await expect(page.getByText('Ketchup').first()).toBeVisible();
+
+  // …and the pantry is stocked from the same trip.
+  await page.getByTestId('nav-inventory').click();
+  await expect(page.getByText('Ketchup')).toBeVisible();
+  await expect(page.getByText('Apples')).toBeVisible();
+});

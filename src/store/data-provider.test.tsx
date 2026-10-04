@@ -535,3 +535,57 @@ describe('the example data', () => {
     expect(latest!.db.purchases).toHaveLength(0);
   });
 });
+
+describe('logging a whole shopping trip at once', () => {
+  it('adds every item in one save and moves the pantry for each', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addPurchases([
+        {
+          date: '2026-10-03',
+          itemName: 'Ketchup',
+          imageKey: 'ketchup',
+          category: 'condiment',
+          amount: 19.5,
+          unit: 'oz',
+          totalPrice: 3.99,
+          store: 'Albertsons',
+        },
+        {
+          date: '2026-10-03',
+          itemName: 'Apples',
+          imageKey: 'apple',
+          category: 'grocery',
+          amount: 1,
+          unit: 'pack',
+          totalPrice: 4.99,
+          savings: 1.5,
+          store: 'Albertsons',
+        },
+      ]);
+    });
+
+    expect(latest!.db.purchases).toHaveLength(2);
+    expect(latest!.db.purchases[1].savings).toBe(1.5);
+    // Both landed in the pantry, with the units they were bought in.
+    expect(latest!.db.inventory.map((item) => item.key).sort()).toEqual(['apples', 'ketchup']);
+    expect(latest!.db.inventory.find((item) => item.key === 'ketchup')?.quantity).toBe(19.5);
+    expect(latest!.db.inventory.find((item) => item.key === 'apples')?.unit).toBe('pack');
+  });
+
+  it('adds two rows of the same item together instead of overwriting', async () => {
+    await renderReady();
+
+    await act(async () => {
+      latest!.addPurchases([
+        { date: '2026-10-03', itemName: 'Rice', imageKey: 'rice', category: 'grocery', amount: 2, unit: 'kg', totalPrice: 8, store: 'Albertsons' },
+        { date: '2026-10-03', itemName: 'Rice', imageKey: 'rice', category: 'grocery', amount: 3, unit: 'kg', totalPrice: 11, store: 'Albertsons' },
+      ]);
+    });
+
+    const rice = latest!.db.inventory.find((item) => item.key === 'rice');
+    expect(rice?.quantity).toBe(5);
+    expect(latest!.db.purchases).toHaveLength(2);
+  });
+});

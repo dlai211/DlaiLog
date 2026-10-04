@@ -17,6 +17,7 @@ export function AppModal({
   onClose,
   children,
   footer,
+  size = 'default',
   testID,
 }: {
   visible: boolean;
@@ -24,6 +25,8 @@ export function AppModal({
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** `wide` is for the forms that lay their fields out in rows (a shopping trip). */
+  size?: 'default' | 'wide';
   testID?: string;
 }) {
   const theme = useTheme();
@@ -64,6 +67,7 @@ export function AppModal({
         <Animated.View
           style={[
             styles.dialogWrap,
+            size === 'wide' && styles.dialogWrapWide,
             {
               opacity: progress,
               transform: [
@@ -113,6 +117,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 560,
     maxHeight: '88%',
+  },
+  dialogWrapWide: {
+    maxWidth: 860,
   },
   dialog: {
     borderRadius: Radius.large,

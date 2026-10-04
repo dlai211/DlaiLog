@@ -259,7 +259,10 @@ export function groupPurchasesByDay(purchases: Purchase[]): PurchaseDayGroup[] {
 }
 
 export interface MonthSummary {
+  /** What was actually paid this month. */
   total: number;
+  /** What the receipts' discounts took off, when they recorded any. */
+  savings: number;
   count: number;
   topStore?: string;
   topCategory?: Category;
@@ -291,6 +294,7 @@ export function monthSummary(purchases: Purchase[], month: string): MonthSummary
 
   return {
     total: round2(inMonth.reduce((sum, purchase) => sum + purchase.totalPrice, 0)),
+    savings: round2(inMonth.reduce((sum, purchase) => sum + (purchase.savings ?? 0), 0)),
     count: inMonth.length,
     topStore: topStore?.[0],
     topCategory: topCategory?.[0],
