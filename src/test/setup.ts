@@ -7,8 +7,18 @@
 
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
 import { configure } from '@testing-library/react-native';
+import WebSocket from 'ws';
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+
+// The Supabase client builds its realtime half in the constructor, even though
+// DlaiLog never subscribes to anything, and that half insists on a WebSocket
+// constructor being present. The browser and the phone both provide one; Node
+// does not until version 22, so Jest is given a real implementation here.
+// `ws` is a dev dependency and is never part of the app bundle.
+if (typeof globalThis.WebSocket === 'undefined') {
+  globalThis.WebSocket = WebSocket as unknown as typeof globalThis.WebSocket;
+}
 
 // A fresh install writes the example dataset (see store/sample-data.ts). Tests
 // want the empty app they set up themselves, so the seeding is switched off

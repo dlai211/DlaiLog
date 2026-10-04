@@ -30,7 +30,9 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files — `.env` holds the Supabase project URL and publishable key
+# and must never be committed. `.env.example` is the committed template.
+.env
 .env*.local
 
 # typescript
